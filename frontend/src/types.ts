@@ -23,3 +23,13 @@ export interface Stats {
   by_country: Record<string, number>;
   by_channel_status: Record<string, Record<string, number>>;
 }
+export interface SendJob {
+  id: string;
+  status: string;
+  done: number;
+  total: number;
+  result:
+    | { sent: number; failed: number; skipped: number; errors: { no: number; error: string }[] }
+    | { error: string }
+    | null;
+}
