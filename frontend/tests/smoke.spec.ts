@@ -7,3 +7,10 @@ test("dashboard loads leads and stats", async ({ page }) => {
   // table has at least one data row
   await expect(page.locator("table tbody tr").first()).toBeVisible();
 });
+
+// SAFETY: only checks the panel/button exists — never clicks 发送邮件 (that would send real email).
+test("outreach panel is present", async ({ page }) => {
+  await page.goto("/");
+  await expect(page.getByRole("button", { name: "发送邮件" })).toBeVisible();
+  await expect(page.getByText(/邮件触达/)).toBeVisible();
+});
