@@ -54,3 +54,20 @@ export async function importLeads(country: string, candidates: { company_en: str
   if (!r.ok) throw new Error(`import ${r.status}`);
   return r.json();
 }
+
+export async function fetchChannels(): Promise<Record<string, string>> {
+  const r = await fetch("/api/channels");
+  if (!r.ok) throw new Error(`channels ${r.status}`);
+  return r.json();
+}
+
+export async function connectChannel(ch: string): Promise<void> {
+  const r = await fetch(`/api/channels/${ch}/connect`, { method: "POST" });
+  if (!r.ok) throw new Error(`connect ${r.status}`);
+}
+
+export async function channelStatus(ch: string): Promise<string> {
+  const r = await fetch(`/api/channels/${ch}/status`);
+  if (!r.ok) throw new Error(`status ${r.status}`);
+  return (await r.json()).status;
+}

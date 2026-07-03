@@ -5,6 +5,7 @@ import { StatCards } from "./components/StatCards";
 import { LeadsTable } from "./components/LeadsTable";
 import { OutreachPanel } from "./components/OutreachPanel";
 import { DiscoveryPanel } from "./components/DiscoveryPanel";
+import { ConnectionPanel } from "./components/ConnectionPanel";
 
 export function App() {
   const [stats, setStats] = useState<Stats | null>(null);
@@ -32,6 +33,7 @@ export function App() {
       <h1 style={{ color: "#e6edf3" }}>客户开发看板</h1>
       {err && <div style={{ color: "#f85149" }}>加载失败：{err}</div>}
       {stats && <StatCards stats={stats} />}
+      <ConnectionPanel />
       <DiscoveryPanel onImported={reload} />
       <OutreachPanel selected={[...selected]} onDone={reload} />
       <div style={{ display: "flex", gap: 12, marginBottom: 12 }}>
