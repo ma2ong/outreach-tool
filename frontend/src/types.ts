@@ -33,3 +33,17 @@ export interface SendJob {
     | { error: string }
     | null;
 }
+export interface Candidate {
+  domain: string;
+  title: string;
+  email: string | null;
+  emails: string[];
+  duplicate_of: number | null;
+}
+export interface DiscoverJob {
+  id: string;
+  status: string;
+  done: number;
+  total: number;
+  result: { candidates: Candidate[] } | { error: string } | null;
+}

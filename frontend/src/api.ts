@@ -1,4 +1,4 @@
-import type { Lead, Stats, SendJob } from "./types";
+import type { Lead, Stats, SendJob, DiscoverJob } from "./types";
 
 export async function fetchLeads(params: Record<string, string> = {}): Promise<Lead[]> {
   const qs = new URLSearchParams(Object.entries(params).filter(([, v]) => v)).toString();
@@ -26,5 +26,31 @@ export async function startEmailSend(body: { lead_nos: number[]; subject: string
 export async function fetchJob(id: string): Promise<SendJob> {
   const r = await fetch(`/api/send/jobs/${id}`);
   if (!r.ok) throw new Error(`job ${r.status}`);
+  return r.json();
+}
+
+export async function startDiscover(query: string, limit = 10): Promise<{ job_id: string }> {
+  const r = await fetch("/api/discover", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ query, limit }),
+  });
+  if (!r.ok) throw new Error(`discover ${r.status}`);
+  return r.json();
+}
+
+export async function fetchDiscoverJob(id: string): Promise<DiscoverJob> {
+  const r = await fetch(`/api/discover/jobs/${id}`);
+  if (!r.ok) throw new Error(`discover job ${r.status}`);
+  return r.json();
+}
+
+export async function importLeads(country: string, candidates: { company_en: string; website: string; email: string | null }[]): Promise<{ imported: number }> {
+  const r = await fetch("/api/leads/import", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ country, candidates }),
+  });
+  if (!r.ok) throw new Error(`import ${r.status}`);
   return r.json();
 }
