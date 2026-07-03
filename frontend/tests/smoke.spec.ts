@@ -8,11 +8,11 @@ test("dashboard loads leads and stats", async ({ page }) => {
   await expect(page.locator("table tbody tr").first()).toBeVisible();
 });
 
-// SAFETY: only checks the panel/button exists — never clicks 发送邮件 (that would send real email).
+// SAFETY: only checks the panel/button exists — never clicks 发送 (that would send real messages).
 test("outreach panel is present", async ({ page }) => {
   await page.goto("/");
   await expect(page.getByRole("button", { name: "发送邮件" })).toBeVisible();
-  await expect(page.getByText(/邮件触达/)).toBeVisible();
+  await expect(page.getByText(/触达（已选/)).toBeVisible();
 });
 
 // SAFETY: only checks the panel exists — never clicks 搜索深挖/导入 (would hit network / write DB).
