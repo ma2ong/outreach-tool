@@ -21,8 +21,10 @@ export function App() {
   useEffect(() => { fetchStats().then(setStats).catch((e) => setErr(String(e))); }, []);
   useEffect(() => { fetchLeads({ country, search }).then(setLeads).catch((e) => setErr(String(e))); }, [country, search]);
 
+  const MAX_ROWS = 200;
+  const shown = leads.slice(0, MAX_ROWS);
   const toggle = (no: number) => setSelected((s) => { const n = new Set(s); if (n.has(no)) { n.delete(no); } else { n.add(no); } return n; });
-  const toggleAll = (checked: boolean) => setSelected(checked ? new Set(leads.map((l) => l.no)) : new Set());
+  const toggleAll = (checked: boolean) => setSelected(checked ? new Set(shown.map((l) => l.no)) : new Set());
 
   const input = { background: "#0d1117", color: "#e6edf3", border: "1px solid #30363d", borderRadius: 6, padding: "6px 10px" };
   return (
@@ -38,9 +40,11 @@ export function App() {
           {stats && Object.keys(stats.by_country).sort().map((c) => <option key={c} value={c}>{c}</option>)}
         </select>
         <input style={input} placeholder="搜索公司/网站/城市" value={search} onChange={(e) => setSearch(e.target.value)} />
-        <span style={{ color: "#8b949e", alignSelf: "center" }}>{leads.length} 条 · 已选 {selected.size}</span>
+        <span style={{ color: "#8b949e", alignSelf: "center" }}>
+          共 {leads.length} 条{leads.length > MAX_ROWS ? `（显示前 ${MAX_ROWS}，用筛选/搜索缩小）` : ""} · 已选 {selected.size}
+        </span>
       </div>
-      <LeadsTable leads={leads} selected={selected} onToggle={toggle} onToggleAll={toggleAll} />
+      <LeadsTable leads={shown} selected={selected} onToggle={toggle} onToggleAll={toggleAll} />
     </div>
   );
 }

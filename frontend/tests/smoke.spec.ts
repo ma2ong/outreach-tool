@@ -14,3 +14,10 @@ test("outreach panel is present", async ({ page }) => {
   await expect(page.getByRole("button", { name: "发送邮件" })).toBeVisible();
   await expect(page.getByText(/邮件触达/)).toBeVisible();
 });
+
+// SAFETY: only checks the panel exists — never clicks 搜索深挖/导入 (would hit network / write DB).
+test("discovery panel is present", async ({ page }) => {
+  await page.goto("/");
+  await expect(page.getByRole("button", { name: "搜索深挖" })).toBeVisible();
+  await expect(page.getByText(/客户开发（搜索/)).toBeVisible();
+});
