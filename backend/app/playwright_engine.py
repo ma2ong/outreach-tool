@@ -1,6 +1,8 @@
 import os
 import queue
+import re
 import threading
+import urllib.parse
 from pathlib import Path
 
 LOGIN_URLS = {
@@ -101,9 +103,46 @@ class PlaywrightEngine:
                 pass
         return "connecting"
 
+    def _send_op(self, channel, target, message):
+        page = self._page(channel)
+        if channel == "whatsapp":
+            url = f"https://web.whatsapp.com/send?phone={target}&text={urllib.parse.quote(message)}"
+            page.goto(url, wait_until="domcontentloaded", timeout=60000)
+            # invalid/unregistered number surfaces a dialog instead of a chat
+            try:
+                if page.get_by_text(re.compile("invalid|not.*valid|isn't on whatsapp|无效", re.I)).first.is_visible(timeout=4000):
+                    raise RuntimeError("number not on WhatsApp")
+            except RuntimeError:
+                raise
+            except Exception:  # noqa: BLE001
+                pass
+            box = page.locator("footer div[contenteditable='true']").first
+            box.wait_for(state="visible", timeout=45000)
+            page.wait_for_timeout(1500)
+            page.keyboard.press("Enter")
+            page.wait_for_timeout(2500)
+            return True
+        if channel == "instagram":
+            page.goto(f"https://www.instagram.com/{target}/", wait_until="domcontentloaded", timeout=60000)
+            btn = page.get_by_role("button", name=re.compile("message|发消息|发送消息|信息", re.I)).first
+            btn.click(timeout=20000)
+            box = page.locator("div[contenteditable='true'][role='textbox'], textarea[placeholder]").first
+            box.wait_for(state="visible", timeout=30000)
+            box.click()
+            page.wait_for_timeout(400)
+            page.keyboard.insert_text(message)  # Input.insertText: works with React contenteditable (Chrome 130+)
+            page.wait_for_timeout(800)
+            page.keyboard.press("Enter")
+            page.wait_for_timeout(2000)
+            return True
+        raise ValueError(f"unsupported channel {channel}")
+
     # ---- public thread-safe API ----
     def status(self, channel: str) -> str:
         return self._state.get(channel, "disconnected")
+
+    def send_message(self, channel: str, target: str, message: str) -> None:
+        self._call(self._send_op, channel, target, message, timeout=150)
 
     def connect(self, channel: str) -> None:
         self._state[channel] = "connecting"

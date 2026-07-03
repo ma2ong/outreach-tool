@@ -1,7 +1,8 @@
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from pydantic import BaseModel
 
-from app import jobs, outreach
+from app import jobs, outreach, channel_outreach
+from app.api import channels as channels_api
 from app.channels.email_adapter import send_email
 from app.main_deps import DB_PATH, get_conn
 from app.db import connect
@@ -49,3 +50,37 @@ def get_job(job_id: str):
     if job is None:
         raise HTTPException(status_code=404, detail="job not found")
     return job
+
+
+# ---- browser channels (WhatsApp / Instagram) ----
+CHANNEL_DELAY = None  # None -> per-channel defaults; injectable in tests
+
+
+class ChannelSendRequest(BaseModel):
+    channel: str
+    lead_nos: list[int]
+    message: str
+
+
+def _run_channel(job_id: str, req: ChannelSendRequest):
+    conn = connect(DB_PATH)
+    try:
+        result = channel_outreach.send_channel_campaign(
+            conn, req.lead_nos, req.channel, req.message, channels_api.ENGINE,
+            delay_range=CHANNEL_DELAY,
+            on_progress=lambda done, total: jobs.update(job_id, done))
+        jobs.finish(job_id, result)
+    except Exception as exc:  # noqa: BLE001
+        jobs.fail(job_id, str(exc))
+    finally:
+        conn.close()
+
+
+@router.post("/channel")
+def send_channel(req: ChannelSendRequest, background: BackgroundTasks, conn=Depends(get_conn)):
+    if req.channel not in ("whatsapp", "instagram"):
+        raise HTTPException(status_code=400, detail="unsupported channel")
+    eligible = channel_outreach.eligible(conn, req.lead_nos, req.channel)
+    job_id = jobs.create(total=len(eligible))
+    background.add_task(_run_channel, job_id, req)
+    return {"job_id": job_id, "eligible": len(eligible), "selected": len(req.lead_nos)}
