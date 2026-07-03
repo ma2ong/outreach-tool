@@ -88,3 +88,26 @@ def stats(conn) -> Stats:
     ):
         by_cs.setdefault(r["channel"], {})[r["status"]] = r["c"]
     return Stats(total=total, by_country=by_country, by_channel_status=by_cs)
+
+
+import datetime as _dt
+
+_INSERT_COLS = ["company_en", "company_local", "country", "region", "city",
+                "email", "phone", "website", "instagram", "facebook", "linkedin",
+                "business", "target_fit"]
+
+
+def next_no(conn) -> int:
+    row = conn.execute("SELECT MAX(no) m FROM leads").fetchone()
+    return (row["m"] or 0) + 1
+
+
+def insert_lead(conn, data: dict) -> int:
+    no = next_no(conn)
+    cols = ["no"] + _INSERT_COLS + ["created_at", "updated_at"]
+    now = _dt.datetime.now(_dt.UTC).isoformat()
+    vals = [no] + [data.get(c) for c in _INSERT_COLS] + [now, now]
+    placeholders = ",".join("?" * len(cols))
+    conn.execute(f"INSERT INTO leads({','.join(cols)}) VALUES ({placeholders})", vals)
+    conn.commit()
+    return no
