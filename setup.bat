@@ -8,6 +8,10 @@ cd backend
 python -m pip install -r requirements.txt
 if errorlevel 1 goto :err
 
+echo === Installing browser engine (Playwright Chromium) ===
+python -m playwright install chromium
+if errorlevel 1 goto :err
+
 echo === [2/3] Importing existing leads into the database ===
 python -m app.migrate
 if errorlevel 1 goto :err

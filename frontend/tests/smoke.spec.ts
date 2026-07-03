@@ -21,3 +21,9 @@ test("discovery panel is present", async ({ page }) => {
   await expect(page.getByRole("button", { name: "搜索深挖" })).toBeVisible();
   await expect(page.getByText(/客户开发（搜索/)).toBeVisible();
 });
+
+// SAFETY: only checks the panel exists — never clicks 连接 (would launch a real browser).
+test("connection panel is present", async ({ page }) => {
+  await page.goto("/");
+  await expect(page.getByText("渠道连接")).toBeVisible();
+});

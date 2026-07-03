@@ -40,7 +40,10 @@ CREATE INDEX IF NOT EXISTS idx_outreach_channel ON outreach(channel, status);
 
 
 def connect(path: str) -> sqlite3.Connection:
-    conn = sqlite3.connect(path)
+    # check_same_thread=False: FastAPI runs a request's dependency and endpoint in
+    # different threadpool threads; each request opens/closes its own connection and
+    # they never run concurrently, so disabling the per-thread check is safe here.
+    conn = sqlite3.connect(path, check_same_thread=False)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys = ON")
     return conn
