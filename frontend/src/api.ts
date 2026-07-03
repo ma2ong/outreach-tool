@@ -55,6 +55,16 @@ export async function importLeads(country: string, candidates: { company_en: str
   return r.json();
 }
 
+export async function startChannelSend(channel: string, lead_nos: number[], message: string): Promise<{ job_id: string; eligible: number; selected: number }> {
+  const r = await fetch("/api/send/channel", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ channel, lead_nos, message }),
+  });
+  if (!r.ok) throw new Error(`send ${r.status}`);
+  return r.json();
+}
+
 export async function fetchChannels(): Promise<Record<string, string>> {
   const r = await fetch("/api/channels");
   if (!r.ok) throw new Error(`channels ${r.status}`);
