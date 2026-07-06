@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { fetchLeads, fetchStats } from "./api";
+import { fetchLeads, fetchStats, markReplied } from "./api";
 import type { Lead, Stats } from "./types";
 import { StatCards } from "./components/StatCards";
 import { LeadsTable } from "./components/LeadsTable";
@@ -11,16 +11,21 @@ export function App() {
   const [stats, setStats] = useState<Stats | null>(null);
   const [leads, setLeads] = useState<Lead[]>([]);
   const [country, setCountry] = useState("");
+  const [status, setStatus] = useState("");
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [err, setErr] = useState("");
 
   function reload() {
     fetchStats().then(setStats).catch((e) => setErr(String(e)));
-    fetchLeads({ country, search }).then(setLeads).catch((e) => setErr(String(e)));
+    fetchLeads({ country, status, search }).then(setLeads).catch((e) => setErr(String(e)));
   }
   useEffect(() => { fetchStats().then(setStats).catch((e) => setErr(String(e))); }, []);
-  useEffect(() => { fetchLeads({ country, search }).then(setLeads).catch((e) => setErr(String(e))); }, [country, search]);
+  useEffect(() => { fetchLeads({ country, status, search }).then(setLeads).catch((e) => setErr(String(e))); }, [country, status, search]);
+
+  async function reply(no: number, channel: string) {
+    try { await markReplied(no, channel); reload(); } catch (e) { setErr(String(e)); }
+  }
 
   const MAX_ROWS = 200;
   const shown = leads.slice(0, MAX_ROWS);
@@ -41,12 +46,17 @@ export function App() {
           <option value="">全部国家</option>
           {stats && Object.keys(stats.by_country).sort().map((c) => <option key={c} value={c}>{c}</option>)}
         </select>
+        <select style={input} value={status} onChange={(e) => setStatus(e.target.value)}>
+          <option value="">全部状态</option>
+          <option value="messaged">已触达</option>
+          <option value="replied">已回复</option>
+        </select>
         <input style={input} placeholder="搜索公司/网站/城市" value={search} onChange={(e) => setSearch(e.target.value)} />
         <span style={{ color: "#8b949e", alignSelf: "center" }}>
           共 {leads.length} 条{leads.length > MAX_ROWS ? `（显示前 ${MAX_ROWS}，用筛选/搜索缩小）` : ""} · 已选 {selected.size}
         </span>
       </div>
-      <LeadsTable leads={shown} selected={selected} onToggle={toggle} onToggleAll={toggleAll} />
+      <LeadsTable leads={shown} selected={selected} onToggle={toggle} onToggleAll={toggleAll} onReply={reply} />
     </div>
   );
 }

@@ -42,3 +42,26 @@ def test_get_lead_404(tmp_path):
 def test_stats(tmp_path):
     r = _client(tmp_path).get("/api/stats")
     assert r.json()["total"] == 2
+
+
+def test_mark_replied(tmp_path):
+    client = _client(tmp_path)
+    r = client.post("/api/leads/1/reply", json={"channel": "email"})
+    assert r.status_code == 200
+    lead = client.get("/api/leads/1").json()
+    assert {"channel": "email", "status": "replied"}.items() <= {
+        k: v for o in lead["outreach"] for k, v in o.items() if o["channel"] == "email"}.items()
+
+
+def test_mark_replied_upserts_when_no_row(tmp_path):
+    client = _client(tmp_path)
+    r = client.post("/api/leads/2/reply", json={"channel": "whatsapp"})
+    assert r.status_code == 200
+    lead = client.get("/api/leads/2").json()
+    assert any(o["channel"] == "whatsapp" and o["status"] == "replied" for o in lead["outreach"])
+
+
+def test_mark_replied_bad(tmp_path):
+    client = _client(tmp_path)
+    assert client.post("/api/leads/999/reply", json={"channel": "email"}).status_code == 404
+    assert client.post("/api/leads/1/reply", json={"channel": "telegram"}).status_code == 400

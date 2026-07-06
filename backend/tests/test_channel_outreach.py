@@ -78,3 +78,10 @@ def test_batch_capped_at_20(conn):
     assert res["deferred"] == 5
     assert res["skipped"] == 0
     assert len(eng.sent) == 20
+
+
+def test_eligible_excludes_replied(conn):
+    _seed(conn)
+    conn.execute("INSERT INTO outreach(lead_no, channel, status) VALUES (1,'whatsapp','replied')")
+    conn.commit()
+    assert [l["no"] for l in co.eligible(conn, [1, 3], "whatsapp")] == [3]

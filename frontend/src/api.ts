@@ -13,6 +13,15 @@ export async function fetchStats(): Promise<Stats> {
   return r.json();
 }
 
+export async function markReplied(no: number, channel: string): Promise<void> {
+  const r = await fetch(`/api/leads/${no}/reply`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ channel }),
+  });
+  if (!r.ok) throw new Error(`reply ${r.status}`);
+}
+
 export async function startEmailSend(body: { lead_nos: number[]; subject: string; body: string }): Promise<{ job_id: string; eligible: number; selected: number }> {
   const r = await fetch("/api/send/email", {
     method: "POST",

@@ -13,7 +13,7 @@ def eligible_leads(conn, lead_nos: list[int], channel: str) -> list[dict]:
             WHERE l.no IN ({placeholders})
               AND l.email IS NOT NULL AND l.email != ''
               AND l.no NOT IN (
-                  SELECT lead_no FROM outreach WHERE channel=? AND status='messaged')
+                  SELECT lead_no FROM outreach WHERE channel=? AND status IN ('messaged','replied'))
             ORDER BY l.no""",
         [*lead_nos, channel],
     ).fetchall()

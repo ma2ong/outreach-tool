@@ -54,6 +54,15 @@ def list_leads(conn, country=None, channel=None, status=None, search=None) -> li
     return [_lead_from_row(r, om.get(r["no"], [])) for r in rows]
 
 
+def mark_replied(conn, no: int, channel: str) -> None:
+    conn.execute(
+        "INSERT INTO outreach(lead_no, channel, status) VALUES (?, ?, 'replied')"
+        " ON CONFLICT(lead_no, channel) DO UPDATE SET status='replied'",
+        (no, channel),
+    )
+    conn.commit()
+
+
 def get_lead(conn, no: int) -> Lead | None:
     row = conn.execute("SELECT * FROM leads WHERE no = ?", (no,)).fetchone()
     if row is None:

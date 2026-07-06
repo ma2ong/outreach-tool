@@ -52,3 +52,10 @@ def test_send_campaign_progress_callback(conn):
                            sender=lambda *a: None, delay_range=(0, 0),
                            on_progress=lambda done, total: seen.append((done, total)))
     assert seen[-1] == (2, 2)
+
+
+def test_eligible_leads_excludes_replied(conn):
+    _seed(conn)
+    conn.execute("INSERT INTO outreach(lead_no, channel, status) VALUES (1,'email','replied')")
+    conn.commit()
+    assert [l["no"] for l in outreach.eligible_leads(conn, [1, 2], "email")] == [2]
