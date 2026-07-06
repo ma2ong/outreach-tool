@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from pydantic import BaseModel
 
@@ -60,6 +62,7 @@ class ChannelSendRequest(BaseModel):
     channel: str
     lead_nos: list[int]
     message: str
+    image: str | None = DEFAULT_ATTACHMENT  # 规矩：DM 必须同步发案例图
 
 
 def _run_channel(job_id: str, req: ChannelSendRequest):
@@ -67,7 +70,7 @@ def _run_channel(job_id: str, req: ChannelSendRequest):
     try:
         result = channel_outreach.send_channel_campaign(
             conn, req.lead_nos, req.channel, req.message, channels_api.ENGINE,
-            delay_range=CHANNEL_DELAY,
+            delay_range=CHANNEL_DELAY, image=req.image,
             on_progress=lambda done, total: jobs.update(job_id, done))
         jobs.finish(job_id, result)
     except Exception as exc:  # noqa: BLE001
@@ -80,6 +83,8 @@ def _run_channel(job_id: str, req: ChannelSendRequest):
 def send_channel(req: ChannelSendRequest, background: BackgroundTasks, conn=Depends(get_conn)):
     if req.channel not in ("whatsapp", "instagram"):
         raise HTTPException(status_code=400, detail="unsupported channel")
+    if req.image and not Path(req.image).is_file():
+        raise HTTPException(status_code=400, detail=f"image not found: {req.image}")
     eligible = channel_outreach.eligible(conn, req.lead_nos, req.channel)
     will_send = min(len(eligible), channel_outreach.MAX_BATCH)
     job_id = jobs.create(total=will_send)

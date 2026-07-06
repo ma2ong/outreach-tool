@@ -28,14 +28,23 @@ def _client(tmp_path):
 def test_send_whatsapp_channel(tmp_path):
     jobs.clear()
     client, db = _client(tmp_path)
-    r = client.post("/api/send/channel", json={"channel": "whatsapp", "lead_nos": [1, 2], "message": "Hi {name}"})
+    r = client.post("/api/send/channel", json={"channel": "whatsapp", "lead_nos": [1, 2], "message": "Hi {name}", "image": None})
     assert r.status_code == 200
     assert r.json()["eligible"] == 1  # only lead 1 has a phone
     jid = r.json()["job_id"]
     job = client.get(f"/api/send/jobs/{jid}").json()
     assert job["status"] == "done"
     assert job["result"]["sent"] == 1
-    assert channels_api.ENGINE.sent == [("whatsapp", "15551112222", "Hi Alpha")]
+    assert channels_api.ENGINE.sent == [("whatsapp", "15551112222", "Hi Alpha", None)]
+
+
+def test_send_channel_missing_image_rejected(tmp_path):
+    client, _ = _client(tmp_path)
+    r = client.post("/api/send/channel", json={
+        "channel": "whatsapp", "lead_nos": [1], "message": "x",
+        "image": "C:/no/such/file.jpg"})
+    assert r.status_code == 400
+    assert "image" in r.json()["detail"]
 
 
 def test_send_channel_bad(tmp_path):

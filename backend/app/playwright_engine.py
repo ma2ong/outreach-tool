@@ -103,7 +103,7 @@ class PlaywrightEngine:
                 pass
         return "connecting"
 
-    def _send_op(self, channel, target, message):
+    def _send_op(self, channel, target, message, image=None):
         page = self._page(channel)
         if channel == "whatsapp":
             url = f"https://web.whatsapp.com/send?phone={target}&text={urllib.parse.quote(message)}"
@@ -121,6 +121,8 @@ class PlaywrightEngine:
             page.wait_for_timeout(1500)
             page.keyboard.press("Enter")
             page.wait_for_timeout(2500)
+            if image:
+                self._wa_attach_image(page, image)
             return True
         if channel == "instagram":
             page.goto(f"https://www.instagram.com/{target}/", wait_until="domcontentloaded", timeout=60000)
@@ -134,15 +136,28 @@ class PlaywrightEngine:
             page.wait_for_timeout(800)
             page.keyboard.press("Enter")
             page.wait_for_timeout(2000)
+            if image:
+                # DM thread keeps a hidden file input; selecting a photo sends it immediately
+                page.locator("input[type='file']").last.set_input_files(image)
+                page.wait_for_timeout(4000)
             return True
         raise ValueError(f"unsupported channel {channel}")
+
+    def _wa_attach_image(self, page, image):
+        page.locator("div[title='Attach'], button[aria-label*='Attach'], span[data-icon='plus'], span[data-icon='clip'], span[data-icon='plus-rounded']").first.click(timeout=15000)
+        page.wait_for_timeout(800)
+        page.locator("input[type='file'][accept*='image']").first.set_input_files(image)
+        send = page.locator("span[data-icon='send'], span[data-icon='wds-ic-send-filled'], div[role='button'][aria-label*='Send']").first
+        send.wait_for(state="visible", timeout=30000)
+        send.click()
+        page.wait_for_timeout(3000)
 
     # ---- public thread-safe API ----
     def status(self, channel: str) -> str:
         return self._state.get(channel, "disconnected")
 
-    def send_message(self, channel: str, target: str, message: str) -> None:
-        self._call(self._send_op, channel, target, message, timeout=150)
+    def send_message(self, channel: str, target: str, message: str, image: str | None = None) -> None:
+        self._call(self._send_op, channel, target, message, image, timeout=150)
 
     def connect(self, channel: str) -> None:
         self._state[channel] = "connecting"

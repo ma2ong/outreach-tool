@@ -49,6 +49,7 @@ def _mark_messaged(conn, lead_no: int, channel: str, date: str) -> None:
 
 def send_channel_campaign(conn, lead_nos: list[int], channel: str, message: str,
                           engine, delay_range: tuple[int, int] | None = None,
+                          image: str | None = None,
                           on_progress: Callable[[int, int], None] | None = None) -> dict:
     if delay_range is None:
         delay_range = DEFAULT_DELAY.get(channel, (60, 90))
@@ -61,7 +62,7 @@ def send_channel_campaign(conn, lead_nos: list[int], channel: str, message: str,
     for i, lead in enumerate(targets, 1):
         name = lead["company_en"]
         try:
-            engine.send_message(channel, _target(channel, lead), message.format(name=name))
+            engine.send_message(channel, _target(channel, lead), message.format(name=name), image)
             _mark_messaged(conn, lead["no"], channel, today)
             sent += 1
         except Exception as exc:  # noqa: BLE001

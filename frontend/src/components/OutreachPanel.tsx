@@ -70,7 +70,7 @@ export function OutreachPanel({ selected, onDone }: { selected: number[]; onDone
       ) : (
         <>
           <div style={{ color: "#d29922", fontSize: 13, marginBottom: 6 }}>
-            ⚠️ {channel === "whatsapp" ? "WhatsApp" : "Instagram"} 自动私信有平台限制，已强制限速（每条间隔 1-4 分钟），单批上限 20 条。请先在「渠道连接」里确认已连接。
+            ⚠️ {channel === "whatsapp" ? "WhatsApp" : "Instagram"} 自动私信有平台限制，已强制限速（每条间隔 1-4 分钟），单批上限 20 条。每条消息自动附带案例图。请先在「渠道连接」里确认已连接。
           </div>
           <textarea style={{ ...box, height: 120, fontFamily: "inherit" }} value={dm} onChange={(e) => setDm(e.target.value)} />
         </>

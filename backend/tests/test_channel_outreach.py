@@ -34,8 +34,8 @@ def test_send_whatsapp_normalizes_number_and_marks(conn):
     res = co.send_channel_campaign(conn, [1, 3], "whatsapp", "Hi {name}", eng, delay_range=(0, 0))
     assert res["sent"] == 2
     # phone normalized to digits only
-    assert ("whatsapp", "15551234567", "Hi Alpha") in eng.sent
-    assert ("whatsapp", "5511999998888", "Hi Gamma") in eng.sent
+    assert ("whatsapp", "15551234567", "Hi Alpha", None) in eng.sent
+    assert ("whatsapp", "5511999998888", "Hi Gamma", None) in eng.sent
     rows = conn.execute("SELECT lead_no FROM outreach WHERE channel='whatsapp' AND status='messaged' ORDER BY lead_no").fetchall()
     assert [r["lead_no"] for r in rows] == [1, 3, 4]
 
@@ -45,7 +45,16 @@ def test_send_instagram_uses_handle(conn):
     eng = FakeEngine()
     res = co.send_channel_campaign(conn, [1], "instagram", "yo {name}", eng, delay_range=(0, 0))
     assert res["sent"] == 1
-    assert eng.sent == [("instagram", "alpha_ig", "yo Alpha")]
+    assert eng.sent == [("instagram", "alpha_ig", "yo Alpha", None)]
+
+
+def test_send_passes_image_through(conn):
+    _seed(conn)
+    eng = FakeEngine()
+    res = co.send_channel_campaign(conn, [1], "whatsapp", "Hi {name}", eng,
+                                   delay_range=(0, 0), image="C:/poster.jpg")
+    assert res["sent"] == 1
+    assert eng.sent == [("whatsapp", "15551234567", "Hi Alpha", "C:/poster.jpg")]
 
 
 def test_send_records_failure(conn):
