@@ -10,9 +10,11 @@
 
 - [x] Task 1: MAX_BATCH=20 + deferred（后端 TDD + UI 提示）→ commit `feat: hard cap 20 per browser-channel batch (anti-ban)`
 - [x] Task 2: image 参数贯穿 FakeEngine / channel_outreach / API / PlaywrightEngine + UI 提示 → commit `feat: WA/IG send with case-image attachment`
-- [ ] Task 3: IG live verify（需 Allen 登录 IG + 指定测试目标）→ 结果记录在本文档
+- [x] Task 3: IG live verify → 结果记录在本文档
 
 ## Live verify 记录
 
 - WhatsApp：2026-05 已实测真实发送 ✓
-- Instagram：待测（Task 3）
+- Instagram：2026-07-06 实测通过 ✓ — 会话持久化生效（connect 后免登录直接 connected）；
+  经 `/api/send/channel` 向 lead #12（@innovatebrazil）真实发送文字 DM + 案例图，
+  全部选择器（Message 按钮 / DM 输入框 / 文件上传框）命中，无异常，outreach 表已标记 messaged。
