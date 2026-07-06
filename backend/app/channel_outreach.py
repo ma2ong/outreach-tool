@@ -8,6 +8,8 @@ from typing import Callable
 _CONTACT_COL = {"whatsapp": "phone", "instagram": "instagram"}
 # default rate limits (seconds) — browser channels must go slow to avoid bans
 DEFAULT_DELAY = {"whatsapp": (60, 90), "instagram": (120, 240)}
+# hard cap per run — exceeding ~20 got the WhatsApp account rate-limited (2026-05-15)
+MAX_BATCH = 20
 
 
 def _target(channel: str, lead: dict) -> str:
@@ -51,7 +53,9 @@ def send_channel_campaign(conn, lead_nos: list[int], channel: str, message: str,
     if delay_range is None:
         delay_range = DEFAULT_DELAY.get(channel, (60, 90))
     today = datetime.date.today().isoformat()
-    targets = eligible(conn, lead_nos, channel)
+    all_targets = eligible(conn, lead_nos, channel)
+    targets = all_targets[:MAX_BATCH]
+    deferred = len(all_targets) - len(targets)
     sent = failed = 0
     errors: list[dict] = []
     for i, lead in enumerate(targets, 1):
@@ -69,5 +73,5 @@ def send_channel_campaign(conn, lead_nos: list[int], channel: str, message: str,
             lo, hi = delay_range
             if hi > 0:
                 time.sleep(random.randint(lo, hi))
-    return {"sent": sent, "failed": failed,
-            "skipped": len(lead_nos) - len(targets), "errors": errors}
+    return {"sent": sent, "failed": failed, "deferred": deferred,
+            "skipped": len(lead_nos) - len(all_targets), "errors": errors}

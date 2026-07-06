@@ -38,7 +38,11 @@ export function OutreachPanel({ selected, onDone }: { selected: number[]; onDone
         ? await startEmailSend({ lead_nos: selected, subject, body })
         : await startChannelSend(channel, selected, dm);
       const unit = isEmail ? "有邮箱" : channel === "whatsapp" ? "有电话" : "有IG";
-      setMsg(`已选 ${start.selected} 家，符合条件（${unit}且未发过）${start.eligible} 家，开始发送…`);
+      const willSend = (start as { will_send?: number }).will_send;
+      const capNote = !isEmail && willSend !== undefined && willSend < start.eligible
+        ? `，本批只发前 ${willSend} 家（防封号上限），其余 ${start.eligible - willSend} 家下次再发`
+        : "";
+      setMsg(`已选 ${start.selected} 家，符合条件（${unit}且未发过）${start.eligible} 家${capNote}，开始发送…`);
       const poll = setInterval(async () => {
         const j = await fetchJob(start.job_id);
         setJob(j);
@@ -66,7 +70,7 @@ export function OutreachPanel({ selected, onDone }: { selected: number[]; onDone
       ) : (
         <>
           <div style={{ color: "#d29922", fontSize: 13, marginBottom: 6 }}>
-            ⚠️ {channel === "whatsapp" ? "WhatsApp" : "Instagram"} 自动私信有平台限制，已强制限速（每条间隔 1-4 分钟）。请先在「渠道连接」里确认已连接。
+            ⚠️ {channel === "whatsapp" ? "WhatsApp" : "Instagram"} 自动私信有平台限制，已强制限速（每条间隔 1-4 分钟），单批上限 20 条。请先在「渠道连接」里确认已连接。
           </div>
           <textarea style={{ ...box, height: 120, fontFamily: "inherit" }} value={dm} onChange={(e) => setDm(e.target.value)} />
         </>
@@ -78,7 +82,7 @@ export function OutreachPanel({ selected, onDone }: { selected: number[]; onDone
         </button>
         {job && <span style={{ color: "#8b949e" }}>进度 {job.done}/{job.total}
           {job.status === "done" && job.result && "sent" in job.result &&
-            ` — 成功 ${job.result.sent}，失败 ${job.result.failed}，跳过 ${job.result.skipped}`}
+            ` — 成功 ${job.result.sent}，失败 ${job.result.failed}，跳过 ${job.result.skipped}${job.result.deferred ? `，延后 ${job.result.deferred}` : ""}`}
           {job.status === "error" && job.result && "error" in job.result && ` — 错误：${job.result.error}`}
         </span>}
       </div>

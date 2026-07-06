@@ -55,7 +55,7 @@ export async function importLeads(country: string, candidates: { company_en: str
   return r.json();
 }
 
-export async function startChannelSend(channel: string, lead_nos: number[], message: string): Promise<{ job_id: string; eligible: number; selected: number }> {
+export async function startChannelSend(channel: string, lead_nos: number[], message: string): Promise<{ job_id: string; eligible: number; selected: number; will_send: number }> {
   const r = await fetch("/api/send/channel", {
     method: "POST",
     headers: { "Content-Type": "application/json" },

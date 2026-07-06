@@ -81,6 +81,8 @@ def send_channel(req: ChannelSendRequest, background: BackgroundTasks, conn=Depe
     if req.channel not in ("whatsapp", "instagram"):
         raise HTTPException(status_code=400, detail="unsupported channel")
     eligible = channel_outreach.eligible(conn, req.lead_nos, req.channel)
-    job_id = jobs.create(total=len(eligible))
+    will_send = min(len(eligible), channel_outreach.MAX_BATCH)
+    job_id = jobs.create(total=will_send)
     background.add_task(_run_channel, job_id, req)
-    return {"job_id": job_id, "eligible": len(eligible), "selected": len(req.lead_nos)}
+    return {"job_id": job_id, "eligible": len(eligible), "selected": len(req.lead_nos),
+            "will_send": will_send}

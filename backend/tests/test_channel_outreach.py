@@ -54,3 +54,18 @@ def test_send_records_failure(conn):
     eng.fail_targets.add("15551234567")
     res = co.send_channel_campaign(conn, [1], "whatsapp", "Hi", eng, delay_range=(0, 0))
     assert res["failed"] == 1 and res["sent"] == 0
+
+
+def test_batch_capped_at_20(conn):
+    conn.execute("DELETE FROM outreach")
+    conn.execute("DELETE FROM leads")
+    conn.executemany(
+        "INSERT INTO leads(no, company_en, phone) VALUES (?, ?, ?)",
+        [(i, f"Co{i}", f"+1555000{i:04d}") for i in range(1, 26)])
+    conn.commit()
+    eng = FakeEngine()
+    res = co.send_channel_campaign(conn, list(range(1, 26)), "whatsapp", "Hi", eng, delay_range=(0, 0))
+    assert res["sent"] == 20
+    assert res["deferred"] == 5
+    assert res["skipped"] == 0
+    assert len(eng.sent) == 20

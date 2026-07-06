@@ -29,7 +29,7 @@ export interface SendJob {
   done: number;
   total: number;
   result:
-    | { sent: number; failed: number; skipped: number; errors: { no: number; error: string }[] }
+    | { sent: number; failed: number; skipped: number; deferred?: number; errors: { no: number; error: string }[] }
     | { error: string }
     | null;
 }
