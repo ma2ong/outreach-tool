@@ -15,6 +15,9 @@ export interface Lead {
   phone: string | null;
   website: string | null;
   instagram: string | null;
+  facebook: string | null;
+  linkedin: string | null;
+  whatsapp_verified: boolean;
   business: string | null;
   outreach: OutreachStatus[];
 }

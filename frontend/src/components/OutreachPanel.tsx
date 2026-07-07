@@ -57,12 +57,11 @@ export function OutreachPanel({ selected, onDone }: { selected: number[]; onDone
     } catch (e) { setMsg("发送失败：" + String(e)); setSending(false); }
   }
 
-  const box = { background: "#0d1117", color: "#e6edf3", border: "1px solid #30363d", borderRadius: 6, padding: 8, width: "100%" };
   return (
-    <div style={{ background: "#161b22", border: "1px solid #30363d", borderRadius: 8, padding: 16, marginBottom: 20 }}>
+    <div>
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
-        <h3 style={{ color: "#e6edf3", margin: 0 }}>触达（已选 {selected.length} 家）</h3>
-        <select value={channel} onChange={(e) => setChannel(e.target.value)} style={{ ...box, width: "auto" }}>
+        <h3 style={{ margin: 0, fontSize: 15 }}>触达（已选 {selected.length} 家）</h3>
+        <select className="input" value={channel} onChange={(e) => setChannel(e.target.value)}>
           <option value="email">Email</option>
           <option value="whatsapp">WhatsApp</option>
           <option value="instagram">Instagram</option>
@@ -70,30 +69,29 @@ export function OutreachPanel({ selected, onDone }: { selected: number[]; onDone
       </div>
       {isEmail ? (
         <>
-          <input style={{ ...box, marginBottom: 8 }} value={subject} onChange={(e) => setSubject(e.target.value)} />
-          <textarea style={{ ...box, height: 180, fontFamily: "inherit" }} value={body} onChange={(e) => setBody(e.target.value)} />
+          <input className="input" style={{ width: "100%", marginBottom: 8 }} value={subject} onChange={(e) => setSubject(e.target.value)} />
+          <textarea className="input" style={{ height: 150 }} value={body} onChange={(e) => setBody(e.target.value)} />
         </>
       ) : (
         <>
-          <div style={{ color: "#d29922", fontSize: 13, marginBottom: 6 }}>
+          <div className="warn-text" style={{ marginBottom: 6 }}>
             ⚠️ {channel === "whatsapp" ? "WhatsApp" : "Instagram"} 自动私信有平台限制，已强制限速（每条间隔 1-4 分钟），单批上限 20 条。每条消息自动附带案例图。请先在「渠道连接」里确认已连接。
             {quota[channel] && ` 今日已发 ${quota[channel].sent_today}/${quota[channel].cap}${quota[channel].sent_today >= quota[channel].cap ? "，已到日上限，明天再发" : ""}`}
           </div>
-          <textarea style={{ ...box, height: 120, fontFamily: "inherit" }} value={dm} onChange={(e) => setDm(e.target.value)} />
+          <textarea className="input" style={{ height: 100 }} value={dm} onChange={(e) => setDm(e.target.value)} />
         </>
       )}
-      <div style={{ marginTop: 10, display: "flex", gap: 12, alignItems: "center" }}>
-        <button onClick={send} disabled={sending}
-          style={{ background: sending ? "#30363d" : "#238636", color: "#fff", border: "none", borderRadius: 6, padding: "8px 18px", cursor: sending ? "default" : "pointer" }}>
+      <div style={{ marginTop: 10, display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
+        <button className="btn btn-green" onClick={send} disabled={sending}>
           {sending ? "发送中…" : isEmail ? "发送邮件" : `发送 ${channel === "whatsapp" ? "WhatsApp" : "Instagram"} 私信`}
         </button>
-        {job && <span style={{ color: "#8b949e" }}>进度 {job.done}/{job.total}
+        {job && <span className="muted">进度 {job.done}/{job.total}
           {job.status === "done" && job.result && "sent" in job.result &&
             ` — 成功 ${job.result.sent}，失败 ${job.result.failed}，跳过 ${job.result.skipped}${job.result.deferred ? `，延后 ${job.result.deferred}` : ""}`}
           {job.status === "error" && job.result && "error" in job.result && ` — 错误：${job.result.error}`}
         </span>}
       </div>
-      {msg && <div style={{ color: "#8b949e", marginTop: 8 }}>{msg}</div>}
+      {msg && <div className="muted" style={{ marginTop: 8 }}>{msg}</div>}
     </div>
   );
 }

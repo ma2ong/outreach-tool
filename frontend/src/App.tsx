@@ -31,17 +31,19 @@ export function App() {
   const [stats, setStats] = useState<Stats | null>(null);
   const [leads, setLeads] = useState<Lead[]>([]);
   const [country, setCountry] = useState("");
+  const [channel, setChannel] = useState("");
   const [status, setStatus] = useState("");
+  const [has, setHas] = useState("");
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [err, setErr] = useState("");
 
   function reload() {
     fetchStats().then(setStats).catch((e) => setErr(String(e)));
-    fetchLeads({ country, status, search }).then(setLeads).catch((e) => setErr(String(e)));
+    fetchLeads({ country, channel, status, search, has }).then(setLeads).catch((e) => setErr(String(e)));
   }
   useEffect(() => { fetchStats().then(setStats).catch((e) => setErr(String(e))); }, []);
-  useEffect(() => { fetchLeads({ country, status, search }).then(setLeads).catch((e) => setErr(String(e))); }, [country, status, search]);
+  useEffect(() => { fetchLeads({ country, channel, status, search, has }).then(setLeads).catch((e) => setErr(String(e))); }, [country, channel, status, search, has]);
 
   async function reply(no: number, channel: string) {
     try { await markReplied(no, channel); reload(); } catch (e) { setErr(String(e)); }
@@ -86,10 +88,23 @@ export function App() {
                   <option value="">全部国家</option>
                   {stats && Object.keys(stats.by_country).sort().map((c) => <option key={c} value={c}>{c}</option>)}
                 </select>
+                <select className="input" value={channel} onChange={(e) => setChannel(e.target.value)}>
+                  <option value="">全部渠道</option>
+                  <option value="email">Email</option>
+                  <option value="whatsapp">WhatsApp</option>
+                  <option value="instagram">Instagram</option>
+                </select>
                 <select className="input" value={status} onChange={(e) => setStatus(e.target.value)}>
                   <option value="">全部状态</option>
+                  <option value="untouched">未触达</option>
                   <option value="messaged">已触达</option>
                   <option value="replied">已回复</option>
+                </select>
+                <select className="input" value={has} onChange={(e) => setHas(e.target.value)}>
+                  <option value="">全部联系方式</option>
+                  <option value="phone">有电话/WA</option>
+                  <option value="instagram">有 IG</option>
+                  <option value="email">有邮箱</option>
                 </select>
                 <input className="input" placeholder="搜索公司/网站/城市" value={search} onChange={(e) => setSearch(e.target.value)} />
                 <span className="muted">
@@ -97,7 +112,11 @@ export function App() {
                 </span>
               </div>
               <LeadsTable leads={shown} selected={selected} onToggle={toggle} onToggleAll={toggleAll} onReply={reply} />
-              <OutreachPanel selected={[...selected]} onDone={reload} />
+              {selected.size > 0 && (
+                <div className="action-bar">
+                  <OutreachPanel selected={[...selected]} onDone={reload} />
+                </div>
+              )}
             </>
           )}
           {page === "discovery" && <DiscoveryPanel onImported={reload} />}
