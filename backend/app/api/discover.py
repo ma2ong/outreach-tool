@@ -22,7 +22,10 @@ class Candidate(BaseModel):
     website: str | None = None
     email: str | None = None
     city: str | None = None
+    phone: str | None = None
     instagram: str | None = None
+    facebook: str | None = None
+    linkedin: str | None = None
 
 
 class ImportRequest(BaseModel):
@@ -66,7 +69,8 @@ def import_leads(req: ImportRequest, conn=Depends(get_conn)):
             continue
         repository.insert_lead(conn, {
             "company_en": c.company_en, "country": req.country, "city": c.city,
-            "website": c.website, "email": c.email, "instagram": c.instagram,
+            "website": c.website, "email": c.email, "phone": c.phone,
+            "instagram": c.instagram, "facebook": c.facebook, "linkedin": c.linkedin,
             "target_fit": "discovered"})
         imported += 1
     return {"imported": imported}

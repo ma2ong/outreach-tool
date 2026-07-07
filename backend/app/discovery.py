@@ -22,6 +22,10 @@ def run_discovery(conn, query: str, limit: int = 10,
             "title": d.get("title") or d["domain"],
             "email": info.get("email"),
             "emails": info.get("emails", []),
+            "phone": info.get("phone"),
+            "instagram": info.get("instagram"),
+            "facebook": info.get("facebook"),
+            "linkedin": info.get("linkedin"),
             "duplicate_of": dup,
         })
         if on_progress:

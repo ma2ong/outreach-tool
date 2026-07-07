@@ -29,12 +29,19 @@ def test_discover_job_and_import(tmp_path):
     assert job["status"] == "done"
     cands = job["result"]["candidates"]
     assert {c["domain"] for c in cands} == {"alpha.com", "newco.com"}
-    # import the new one
+    # import the new one with full contact fields
     r2 = client.post("/api/leads/import", json={"country": "USA", "candidates": [
-        {"company_en": "New Co", "website": "newco.com", "email": "info@newco.com"}]})
+        {"company_en": "New Co", "website": "newco.com", "email": "info@newco.com",
+         "phone": "+5511956635316", "instagram": "newcoig", "facebook": "newcofb",
+         "linkedin": "linkedin.com/company/newco"}]})
     assert r2.json()["imported"] == 1
     conn = connect(db)
-    assert conn.execute("SELECT COUNT(*) c FROM leads WHERE website='newco.com'").fetchone()["c"] == 1
+    row = conn.execute("SELECT * FROM leads WHERE website='newco.com'").fetchone()
+    assert row is not None
+    assert row["phone"] == "+5511956635316"
+    assert row["instagram"] == "newcoig"
+    assert row["facebook"] == "newcofb"
+    assert row["linkedin"] == "linkedin.com/company/newco"
 
 
 def test_discover_jobs_404(tmp_path):
