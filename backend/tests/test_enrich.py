@@ -22,3 +22,60 @@ def test_enrich_domain_no_email():
     out = enrich.enrich_domain("none.com", fetch=lambda url: "no address here")
     assert out["email"] is None
     assert out["emails"] == []
+
+
+def test_extract_phones_wa_me_first():
+    text = ("Call us tel:+55-11-2115-3091 or https://wa.me/5511956635316 "
+            "or +55 11 3044-4609")
+    got = enrich.extract_phones(text)
+    assert got[0] == "+5511956635316"
+    assert "+551121153091" in got
+    assert "+551130444609" in got
+
+
+def test_extract_phones_whatsapp_api_link():
+    text = "https://api.whatsapp.com/send?phone=5215512345678&text=hi"
+    assert enrich.extract_phones(text) == ["+5215512345678"]
+
+
+def test_extract_phones_dedupes_and_ignores_short():
+    text = "tel:+5511956635316 wa.me/5511956635316 call 123456"
+    assert enrich.extract_phones(text) == ["+5511956635316"]
+
+
+def test_extract_socials_handles():
+    text = ("https://www.instagram.com/ledwave/ "
+            "https://instagram.com/p/Cxyz123/ "
+            "https://facebook.com/ledwavesaopaulo "
+            "https://www.facebook.com/sharer.php?u=x "
+            "https://www.linkedin.com/company/ledwave/about")
+    got = enrich.extract_socials(text)
+    assert got["instagram"] == "ledwave"
+    assert got["facebook"] == "ledwavesaopaulo"
+    assert got["linkedin"] == "linkedin.com/company/ledwave"
+
+
+def test_extract_socials_none():
+    got = enrich.extract_socials("nothing social here")
+    assert got == {"instagram": None, "facebook": None, "linkedin": None}
+
+
+def test_enrich_domain_returns_phone_and_socials():
+    pages = {
+        "https://acme.com/contact": ("reach info@acme.com wa.me/5511956635316 "
+                                     "instagram.com/acmeled facebook.com/acmeledpage "
+                                     "linkedin.com/in/acme-founder"),
+    }
+    out = enrich.enrich_domain("acme.com", fetch=lambda url: pages.get(url, ""))
+    assert out["phone"] == "+5511956635316"
+    assert out["instagram"] == "acmeled"
+    assert out["facebook"] == "acmeledpage"
+    assert out["linkedin"] == "linkedin.com/in/acme-founder"
+
+
+def test_enrich_domain_no_contacts_has_none_fields():
+    out = enrich.enrich_domain("none.com", fetch=lambda url: "plain page")
+    assert out["phone"] is None
+    assert out["instagram"] is None
+    assert out["facebook"] is None
+    assert out["linkedin"] is None
