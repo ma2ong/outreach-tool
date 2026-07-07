@@ -7,7 +7,27 @@ import { OutreachPanel } from "./components/OutreachPanel";
 import { DiscoveryPanel } from "./components/DiscoveryPanel";
 import { ConnectionPanel } from "./components/ConnectionPanel";
 
+type Page = "dashboard" | "leads" | "discovery" | "channels";
+
+const PAGES: { id: Page; label: string; ico: string }[] = [
+  { id: "dashboard", label: "仪表盘", ico: "▦" },
+  { id: "leads", label: "客户库", ico: "☰" },
+  { id: "discovery", label: "客户开发", ico: "⌕" },
+  { id: "channels", label: "渠道连接", ico: "⇄" },
+];
+
+function useTheme(): [string, () => void] {
+  const [theme, setTheme] = useState(() => localStorage.getItem("theme") || "dark");
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme;
+    localStorage.setItem("theme", theme);
+  }, [theme]);
+  return [theme, () => setTheme((t) => (t === "dark" ? "light" : "dark"))];
+}
+
 export function App() {
+  const [page, setPage] = useState<Page>("leads");
+  const [theme, toggleTheme] = useTheme();
   const [stats, setStats] = useState<Stats | null>(null);
   const [leads, setLeads] = useState<Lead[]>([]);
   const [country, setCountry] = useState("");
@@ -32,31 +52,58 @@ export function App() {
   const toggle = (no: number) => setSelected((s) => { const n = new Set(s); if (n.has(no)) { n.delete(no); } else { n.add(no); } return n; });
   const toggleAll = (checked: boolean) => setSelected(checked ? new Set(shown.map((l) => l.no)) : new Set());
 
-  const input = { background: "#0d1117", color: "#e6edf3", border: "1px solid #30363d", borderRadius: 6, padding: "6px 10px" };
+  const title = PAGES.find((p) => p.id === page)!.label;
   return (
-    <div style={{ fontFamily: "system-ui, sans-serif", background: "#0d1117", minHeight: "100vh", padding: 24 }}>
-      <h1 style={{ color: "#e6edf3" }}>客户开发看板</h1>
-      {err && <div style={{ color: "#f85149" }}>加载失败：{err}</div>}
-      {stats && <StatCards stats={stats} />}
-      <ConnectionPanel />
-      <DiscoveryPanel onImported={reload} />
-      <OutreachPanel selected={[...selected]} onDone={reload} />
-      <div style={{ display: "flex", gap: 12, marginBottom: 12 }}>
-        <select style={input} value={country} onChange={(e) => setCountry(e.target.value)}>
-          <option value="">全部国家</option>
-          {stats && Object.keys(stats.by_country).sort().map((c) => <option key={c} value={c}>{c}</option>)}
-        </select>
-        <select style={input} value={status} onChange={(e) => setStatus(e.target.value)}>
-          <option value="">全部状态</option>
-          <option value="messaged">已触达</option>
-          <option value="replied">已回复</option>
-        </select>
-        <input style={input} placeholder="搜索公司/网站/城市" value={search} onChange={(e) => setSearch(e.target.value)} />
-        <span style={{ color: "#8b949e", alignSelf: "center" }}>
-          共 {leads.length} 条{leads.length > MAX_ROWS ? `（显示前 ${MAX_ROWS}，用筛选/搜索缩小）` : ""} · 已选 {selected.size}
-        </span>
+    <div className="shell">
+      <aside className="sidebar">
+        <div className="brand">
+          <span className="pixel-logo"><i /><i /><i /><i /></span>
+          <span>
+            <div className="brand-name">Maxcolor</div>
+            <div className="brand-sub">客户开发系统</div>
+          </span>
+        </div>
+        {PAGES.map((p) => (
+          <button key={p.id} className={`nav-item${page === p.id ? " active" : ""}`} onClick={() => setPage(p.id)}>
+            <span className="ico">{p.ico}</span><span className="nav-label">{p.label}</span>
+          </button>
+        ))}
+      </aside>
+      <div className="main">
+        <header className="topbar">
+          <h2>{title}</h2>
+          <button className="btn btn-sm" onClick={toggleTheme} title="切换主题">
+            {theme === "dark" ? "☀ 浅色" : "☾ 深色"}
+          </button>
+        </header>
+        <div className="content">
+          {err && <div className="error-text" style={{ marginBottom: 12 }}>加载失败：{err}</div>}
+          {page === "dashboard" && stats && <StatCards stats={stats} />}
+          {page === "leads" && (
+            <>
+              <div className="filter-bar">
+                <select className="input" value={country} onChange={(e) => setCountry(e.target.value)}>
+                  <option value="">全部国家</option>
+                  {stats && Object.keys(stats.by_country).sort().map((c) => <option key={c} value={c}>{c}</option>)}
+                </select>
+                <select className="input" value={status} onChange={(e) => setStatus(e.target.value)}>
+                  <option value="">全部状态</option>
+                  <option value="messaged">已触达</option>
+                  <option value="replied">已回复</option>
+                </select>
+                <input className="input" placeholder="搜索公司/网站/城市" value={search} onChange={(e) => setSearch(e.target.value)} />
+                <span className="muted">
+                  共 {leads.length} 条{leads.length > MAX_ROWS ? `（显示前 ${MAX_ROWS}，用筛选/搜索缩小）` : ""} · 已选 {selected.size}
+                </span>
+              </div>
+              <LeadsTable leads={shown} selected={selected} onToggle={toggle} onToggleAll={toggleAll} onReply={reply} />
+              <OutreachPanel selected={[...selected]} onDone={reload} />
+            </>
+          )}
+          {page === "discovery" && <DiscoveryPanel onImported={reload} />}
+          {page === "channels" && <ConnectionPanel />}
+        </div>
       </div>
-      <LeadsTable leads={shown} selected={selected} onToggle={toggle} onToggleAll={toggleAll} onReply={reply} />
     </div>
   );
 }
