@@ -27,7 +27,11 @@ def _outreach_for(conn: sqlite3.Connection, lead_nos: list[int]) -> dict[int, li
     return out
 
 
-def list_leads(conn, country=None, channel=None, status=None, search=None) -> list[Lead]:
+_HAS_COLS = {"phone": "phone", "instagram": "instagram", "email": "email"}
+_TOUCHED = "status IN ('messaged','replied')"
+
+
+def list_leads(conn, country=None, channel=None, status=None, search=None, has=None) -> list[Lead]:
     where, params = [], []
     if country:
         where.append("l.country = ?")
@@ -35,6 +39,18 @@ def list_leads(conn, country=None, channel=None, status=None, search=None) -> li
     if search:
         where.append("(l.company_en LIKE ? OR l.website LIKE ? OR l.city LIKE ?)")
         params += [f"%{search}%"] * 3
+    if has:
+        col = _HAS_COLS.get(has)
+        if col:
+            where.append(f"l.{col} IS NOT NULL AND l.{col} != ''")
+    if status == "untouched":
+        if channel:
+            where.append("l.no NOT IN (SELECT lead_no FROM outreach"
+                         f" WHERE channel = ? AND {_TOUCHED})")
+            params.append(channel)
+        else:
+            where.append(f"l.no NOT IN (SELECT lead_no FROM outreach WHERE {_TOUCHED})")
+        channel = status = None
     if channel or status:
         sub, sp = [], []
         if channel:

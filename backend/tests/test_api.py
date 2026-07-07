@@ -29,6 +29,16 @@ def test_list_leads_filter(tmp_path):
     assert [l["no"] for l in r.json()] == [1]
 
 
+def test_list_leads_untouched_and_has(tmp_path):
+    client = _client(tmp_path)
+    r = client.get("/api/leads?status=untouched")
+    assert [l["no"] for l in r.json()] == [2]
+    r2 = client.get("/api/leads?channel=whatsapp&status=untouched")
+    assert [l["no"] for l in r2.json()] == [1, 2]
+    r3 = client.get("/api/leads?has=email")
+    assert r3.json() == []
+
+
 def test_get_lead(tmp_path):
     r = _client(tmp_path).get("/api/leads/1")
     assert r.status_code == 200

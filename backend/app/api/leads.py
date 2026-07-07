@@ -16,8 +16,10 @@ class ReplyRequest(BaseModel):
 
 @router.get("/leads", response_model=list[Lead])
 def list_leads(country: str | None = None, channel: str | None = None,
-               status: str | None = None, search: str | None = None, conn=Depends(get_conn)):
-    return repo.list_leads(conn, country=country, channel=channel, status=status, search=search)
+               status: str | None = None, search: str | None = None,
+               has: str | None = None, conn=Depends(get_conn)):
+    return repo.list_leads(conn, country=country, channel=channel, status=status,
+                           search=search, has=has)
 
 
 @router.get("/leads/{no}", response_model=Lead)
