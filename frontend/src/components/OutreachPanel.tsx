@@ -11,6 +11,8 @@ I came across your LED video wall and display work and wanted to share a recent 
 
 If you ever need LED panels or full displays, I can recommend options based on size, viewing distance, pixel pitch, and indoor/outdoor use.
 
+If you'd prefer not to receive these emails, just reply "unsubscribe" and I won't contact you again.
+
 Best regards,
 Allen Ma
 Shenzhen Maxcolor Visual Co., Ltd.
