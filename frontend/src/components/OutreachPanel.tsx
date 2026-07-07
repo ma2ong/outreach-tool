@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { startEmailSend, startChannelSend, fetchJob } from "../api";
+import { useEffect, useState } from "react";
+import { startEmailSend, startChannelSend, fetchJob, fetchQuota } from "../api";
 import type { SendJob } from "../types";
 
 const DEFAULT_SUBJECT = "Recent LED Display Installations in Korea";
@@ -29,8 +29,12 @@ export function OutreachPanel({ selected, onDone }: { selected: number[]; onDone
   const [job, setJob] = useState<SendJob | null>(null);
   const [msg, setMsg] = useState("");
   const [sending, setSending] = useState(false);
+  const [quota, setQuota] = useState<Record<string, { sent_today: number; cap: number }>>({});
 
   const isEmail = channel === "email";
+  useEffect(() => {
+    if (!isEmail) fetchQuota().then(setQuota).catch(() => {});
+  }, [channel, sending, isEmail]);
 
   async function send() {
     if (selected.length === 0) { setMsg("请先勾选客户"); return; }
@@ -73,6 +77,7 @@ export function OutreachPanel({ selected, onDone }: { selected: number[]; onDone
         <>
           <div style={{ color: "#d29922", fontSize: 13, marginBottom: 6 }}>
             ⚠️ {channel === "whatsapp" ? "WhatsApp" : "Instagram"} 自动私信有平台限制，已强制限速（每条间隔 1-4 分钟），单批上限 20 条。每条消息自动附带案例图。请先在「渠道连接」里确认已连接。
+            {quota[channel] && ` 今日已发 ${quota[channel].sent_today}/${quota[channel].cap}${quota[channel].sent_today >= quota[channel].cap ? "，已到日上限，明天再发" : ""}`}
           </div>
           <textarea style={{ ...box, height: 120, fontFamily: "inherit" }} value={dm} onChange={(e) => setDm(e.target.value)} />
         </>

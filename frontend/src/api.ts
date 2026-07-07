@@ -13,6 +13,12 @@ export async function fetchStats(): Promise<Stats> {
   return r.json();
 }
 
+export async function fetchQuota(): Promise<Record<string, { sent_today: number; cap: number }>> {
+  const r = await fetch("/api/send/quota");
+  if (!r.ok) throw new Error(`quota ${r.status}`);
+  return r.json();
+}
+
 export async function markReplied(no: number, channel: string): Promise<void> {
   const r = await fetch(`/api/leads/${no}/reply`, {
     method: "POST",

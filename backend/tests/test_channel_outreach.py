@@ -85,3 +85,35 @@ def test_eligible_excludes_replied(conn):
     conn.execute("INSERT INTO outreach(lead_no, channel, status) VALUES (1,'whatsapp','replied')")
     conn.commit()
     assert [l["no"] for l in co.eligible(conn, [1, 3], "whatsapp")] == [3]
+
+
+def test_daily_cap_limits_batch(conn):
+    import datetime
+    today = datetime.date.today().isoformat()
+    conn.execute("DELETE FROM outreach")
+    conn.execute("DELETE FROM leads")
+    conn.executemany(
+        "INSERT INTO leads(no, company_en, phone) VALUES (?, ?, ?)",
+        [(i, f"Co{i}", f"+1555000{i:04d}") for i in range(1, 16)])
+    # 35 already sent today on other leads -> only 5 left of the 40/day cap
+    conn.executemany(
+        "INSERT INTO leads(no, company_en, phone) VALUES (?, ?, ?)",
+        [(i, f"Old{i}", f"+1666000{i:04d}") for i in range(100, 135)])
+    conn.executemany(
+        "INSERT INTO outreach(lead_no, channel, status, message_sent_date) VALUES (?, 'whatsapp', 'messaged', ?)",
+        [(i, today) for i in range(100, 135)])
+    conn.commit()
+    eng = FakeEngine()
+    res = co.send_channel_campaign(conn, list(range(1, 16)), "whatsapp", "Hi", eng, delay_range=(0, 0))
+    assert res["sent"] == 5
+    assert res["deferred"] == 10
+
+
+def test_sent_today_counts_channel(conn):
+    import datetime
+    today = datetime.date.today().isoformat()
+    _seed(conn)
+    conn.execute("UPDATE outreach SET message_sent_date=? WHERE lead_no=4", (today,))
+    conn.commit()
+    assert co.sent_today(conn, "whatsapp") == 1
+    assert co.sent_today(conn, "instagram") == 0

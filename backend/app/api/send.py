@@ -79,6 +79,12 @@ def _run_channel(job_id: str, req: ChannelSendRequest):
         conn.close()
 
 
+@router.get("/quota")
+def quota(conn=Depends(get_conn)):
+    return {c: {"sent_today": channel_outreach.sent_today(conn, c), "cap": cap}
+            for c, cap in channel_outreach.DAILY_CAP.items()}
+
+
 @router.post("/channel")
 def send_channel(req: ChannelSendRequest, background: BackgroundTasks, conn=Depends(get_conn)):
     if req.channel not in ("whatsapp", "instagram"):
@@ -86,7 +92,9 @@ def send_channel(req: ChannelSendRequest, background: BackgroundTasks, conn=Depe
     if req.image and not Path(req.image).is_file():
         raise HTTPException(status_code=400, detail=f"image not found: {req.image}")
     eligible = channel_outreach.eligible(conn, req.lead_nos, req.channel)
-    will_send = min(len(eligible), channel_outreach.MAX_BATCH)
+    remaining_today = max(0, channel_outreach.DAILY_CAP[req.channel]
+                          - channel_outreach.sent_today(conn, req.channel))
+    will_send = min(len(eligible), channel_outreach.MAX_BATCH, remaining_today)
     job_id = jobs.create(total=will_send)
     background.add_task(_run_channel, job_id, req)
     return {"job_id": job_id, "eligible": len(eligible), "selected": len(req.lead_nos),

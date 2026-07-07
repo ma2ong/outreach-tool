@@ -50,3 +50,10 @@ def test_send_channel_missing_image_rejected(tmp_path):
 def test_send_channel_bad(tmp_path):
     client, _ = _client(tmp_path)
     assert client.post("/api/send/channel", json={"channel": "telegram", "lead_nos": [1], "message": "x"}).status_code == 400
+
+
+def test_quota_endpoint(tmp_path):
+    client, _ = _client(tmp_path)
+    q = client.get("/api/send/quota").json()
+    assert q["whatsapp"] == {"sent_today": 0, "cap": 40}
+    assert q["instagram"]["cap"] == 40

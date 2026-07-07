@@ -10,6 +10,16 @@ _CONTACT_COL = {"whatsapp": "phone", "instagram": "instagram"}
 DEFAULT_DELAY = {"whatsapp": (60, 90), "instagram": (120, 240)}
 # hard cap per run — exceeding ~20 got the WhatsApp account rate-limited (2026-05-15)
 MAX_BATCH = 20
+# per-channel daily cap (2 batches/day)
+DAILY_CAP = {"whatsapp": 40, "instagram": 40}
+
+
+def sent_today(conn, channel: str) -> int:
+    today = datetime.date.today().isoformat()
+    return conn.execute(
+        "SELECT COUNT(*) FROM outreach WHERE channel=? AND status='messaged' AND message_sent_date=?",
+        (channel, today),
+    ).fetchone()[0]
 
 
 def _target(channel: str, lead: dict) -> str:
@@ -55,7 +65,8 @@ def send_channel_campaign(conn, lead_nos: list[int], channel: str, message: str,
         delay_range = DEFAULT_DELAY.get(channel, (60, 90))
     today = datetime.date.today().isoformat()
     all_targets = eligible(conn, lead_nos, channel)
-    targets = all_targets[:MAX_BATCH]
+    remaining_today = max(0, DAILY_CAP.get(channel, MAX_BATCH) - sent_today(conn, channel))
+    targets = all_targets[:min(MAX_BATCH, remaining_today)]
     deferred = len(all_targets) - len(targets)
     sent = failed = 0
     errors: list[dict] = []
