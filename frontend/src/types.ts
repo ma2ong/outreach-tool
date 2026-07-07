@@ -41,6 +41,10 @@ export interface Candidate {
   title: string;
   email: string | null;
   emails: string[];
+  phone: string | null;
+  instagram: string | null;
+  facebook: string | null;
+  linkedin: string | null;
   duplicate_of: number | null;
 }
 export interface DiscoverJob {

@@ -60,7 +60,10 @@ export async function fetchDiscoverJob(id: string): Promise<DiscoverJob> {
   return r.json();
 }
 
-export async function importLeads(country: string, candidates: { company_en: string; website: string; email: string | null }[]): Promise<{ imported: number }> {
+export async function importLeads(country: string, candidates: {
+  company_en: string; website: string; email: string | null;
+  phone?: string | null; instagram?: string | null; facebook?: string | null; linkedin?: string | null;
+}[]): Promise<{ imported: number }> {
   const r = await fetch("/api/leads/import", {
     method: "POST",
     headers: { "Content-Type": "application/json" },

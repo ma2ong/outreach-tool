@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { fetchLeads, fetchStats, markReplied } from "./api";
 import type { Lead, Stats } from "./types";
-import { StatCards } from "./components/StatCards";
+import { Dashboard } from "./components/Dashboard";
 import { LeadsTable } from "./components/LeadsTable";
 import { OutreachPanel } from "./components/OutreachPanel";
 import { DiscoveryPanel } from "./components/DiscoveryPanel";
@@ -80,7 +80,7 @@ export function App() {
         </header>
         <div className="content">
           {err && <div className="error-text" style={{ marginBottom: 12 }}>加载失败：{err}</div>}
-          {page === "dashboard" && stats && <StatCards stats={stats} />}
+          {page === "dashboard" && stats && <Dashboard stats={stats} />}
           {page === "leads" && (
             <>
               <div className="filter-bar">
