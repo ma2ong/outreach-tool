@@ -64,3 +64,29 @@ def test_stats(conn):
     assert s.by_channel_status["email"]["messaged"] == 1
     assert s.by_channel_status["email"]["prospect"] == 1
     assert s.by_channel_status["instagram"]["messaged"] == 1
+
+
+def test_stats_reach_and_funnel(conn):
+    # lead1: email+phone+ig(alphaig); lead2: email only; lead3: ig(gammaig) only
+    conn.execute("UPDATE leads SET email='a@a.com', phone='+111' WHERE no=1")
+    conn.execute("UPDATE leads SET email='b@b.com' WHERE no=2")
+    conn.commit()
+    s = repo.stats(conn)
+    # email: have {1,2}=2, messaged {1}=1 (lead2 is 'prospect'), untouched {2}=1
+    assert s.reach["email"] == {"have": 2, "messaged": 1, "replied": 0, "untouched": 1}
+    # whatsapp: have {1}=1 (only lead1 has phone), messaged {3}=1 (outreach row), untouched {1}=1
+    assert s.reach["whatsapp"] == {"have": 1, "messaged": 1, "replied": 0, "untouched": 1}
+    # instagram: have {1,3}=2, messaged {1}=1, untouched {3}=1
+    assert s.reach["instagram"] == {"have": 2, "messaged": 1, "replied": 0, "untouched": 1}
+    # funnel: total 3, with_contact 3, touched {1,3}=2, replied 0
+    assert s.funnel == {"total": 3, "with_contact": 3, "touched": 2, "replied": 0}
+
+
+def test_stats_reach_counts_replied(conn):
+    conn.execute("UPDATE leads SET email='a@a.com' WHERE no=1")
+    conn.commit()
+    repo.mark_replied(conn, 1, "email")
+    s = repo.stats(conn)
+    assert s.reach["email"]["replied"] == 1
+    assert s.reach["email"]["messaged"] == 1  # replied still counts as touched
+    assert s.funnel["replied"] == 1

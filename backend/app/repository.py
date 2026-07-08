@@ -112,7 +112,34 @@ def stats(conn) -> Stats:
         "SELECT channel, status, COUNT(*) c FROM outreach GROUP BY channel, status"
     ):
         by_cs.setdefault(r["channel"], {})[r["status"]] = r["c"]
-    return Stats(total=total, by_country=by_country, by_channel_status=by_cs)
+
+    def _count(sql, params=()):
+        return conn.execute(sql, params).fetchone()["c"]
+
+    reach: dict[str, dict[str, int]] = {}
+    for ch, col in (("email", "email"), ("whatsapp", "phone"), ("instagram", "instagram")):
+        have = _count(f"SELECT COUNT(*) c FROM leads WHERE {col} IS NOT NULL AND {col} != ''")
+        messaged = _count("SELECT COUNT(DISTINCT lead_no) c FROM outreach"
+                          " WHERE channel=? AND status IN ('messaged','replied')", (ch,))
+        replied = _count("SELECT COUNT(DISTINCT lead_no) c FROM outreach"
+                         " WHERE channel=? AND status='replied'", (ch,))
+        untouched = _count(
+            f"SELECT COUNT(*) c FROM leads l WHERE l.{col} IS NOT NULL AND l.{col} != ''"
+            " AND l.no NOT IN (SELECT lead_no FROM outreach"
+            " WHERE channel=? AND status IN ('messaged','replied','excluded'))", (ch,))
+        reach[ch] = {"have": have, "messaged": messaged, "replied": replied, "untouched": untouched}
+
+    funnel = {
+        "total": total,
+        "with_contact": _count(
+            "SELECT COUNT(*) c FROM leads WHERE (email IS NOT NULL AND email != '')"
+            " OR (phone IS NOT NULL AND phone != '') OR (instagram IS NOT NULL AND instagram != '')"),
+        "touched": _count("SELECT COUNT(DISTINCT lead_no) c FROM outreach"
+                          " WHERE status IN ('messaged','replied')"),
+        "replied": _count("SELECT COUNT(DISTINCT lead_no) c FROM outreach WHERE status='replied'"),
+    }
+    return Stats(total=total, by_country=by_country, by_channel_status=by_cs,
+                 reach=reach, funnel=funnel)
 
 
 import datetime as _dt

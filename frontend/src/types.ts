@@ -21,10 +21,18 @@ export interface Lead {
   business: string | null;
   outreach: OutreachStatus[];
 }
+export interface ChannelReach {
+  have: number;
+  messaged: number;
+  replied: number;
+  untouched: number;
+}
 export interface Stats {
   total: number;
   by_country: Record<string, number>;
   by_channel_status: Record<string, Record<string, number>>;
+  reach: Record<string, ChannelReach>;
+  funnel: { total: number; with_contact: number; touched: number; replied: number };
 }
 export interface SendJob {
   id: string;

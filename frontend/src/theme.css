@@ -163,6 +163,21 @@ textarea.input { width: 100%; resize: vertical; }
 .filter-bar { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-bottom: 12px; }
 .cards-row { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; }
 
+/* Reach funnel / channel coverage bars */
+.reach-row { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+.reach-row .ch-name { width: 92px; flex: none; font-weight: 600; }
+.reach-track { flex: 1; display: flex; height: 12px; border-radius: 6px; overflow: hidden; background: var(--surface-2); }
+.reach-track > div { height: 100%; }
+.reach-meta { flex: none; font-size: 12px; color: var(--dim); font-variant-numeric: tabular-nums; }
+.reach-meta b { color: var(--warn); }
+.reach-legend { display: flex; flex-wrap: wrap; gap: 4px 16px; margin: 4px 0 14px 104px; }
+.reach-legend span { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--dim); }
+.reach-legend i { width: 10px; height: 10px; border-radius: 3px; flex: none; }
+.funnel-grid { display: flex; gap: 10px; flex-wrap: wrap; }
+.funnel-tile { flex: 1; min-width: 130px; }
+.funnel-bar { height: 6px; border-radius: 3px; background: var(--accent); margin-top: 8px; }
+.funnel-track { height: 6px; border-radius: 3px; background: var(--surface-2); margin-top: 8px; }
+
 @media (max-width: 900px) {
   .sidebar { width: 60px; }
   .sidebar .brand-name, .sidebar .brand-sub, .sidebar .nav-label { display: none; }

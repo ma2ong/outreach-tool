@@ -34,3 +34,5 @@ class Stats(BaseModel):
     total: int
     by_country: dict[str, int]
     by_channel_status: dict[str, dict[str, int]]
+    reach: dict[str, dict[str, int]] = {}
+    funnel: dict[str, int] = {}
