@@ -8,13 +8,19 @@ from app.main_deps import DB_PATH as _DB_PATH, get_conn
 router = APIRouter(prefix="/api")
 
 DB_PATH = _DB_PATH
-SEARCH_FN = None   # injectable in tests; None -> real search
-ENRICH_FN = None   # injectable in tests; None -> real enrich
+SEARCH_FN = None    # injectable in tests; None -> real search
+ENRICH_FN = None    # injectable in tests; None -> real enrich
+HARVEST_FN = None   # injectable in tests; None -> real harvest
 
 
 class DiscoverRequest(BaseModel):
     query: str
     limit: int = 10
+
+
+class PageDiscoverRequest(BaseModel):
+    url: str
+    limit: int = 40
 
 
 class Candidate(BaseModel):
@@ -26,6 +32,7 @@ class Candidate(BaseModel):
     instagram: str | None = None
     facebook: str | None = None
     linkedin: str | None = None
+    source: str | None = None
 
 
 class ImportRequest(BaseModel):
@@ -46,10 +53,32 @@ def _run(job_id: str, query: str, limit: int):
         conn.close()
 
 
+def _run_page(job_id: str, url: str, limit: int):
+    conn = connect(DB_PATH)
+    try:
+        cands = discovery.run_page_discovery(
+            conn, url, limit, harvest_fn=HARVEST_FN, enrich_fn=ENRICH_FN,
+            on_progress=lambda done, total: jobs.update(job_id, done))
+        jobs.finish(job_id, {"candidates": cands})
+    except Exception as exc:  # noqa: BLE001
+        jobs.fail(job_id, str(exc))
+    finally:
+        conn.close()
+
+
 @router.post("/discover")
 def discover(req: DiscoverRequest, background: BackgroundTasks):
     job_id = jobs.create(total=req.limit)
     background.add_task(_run, job_id, req.query, req.limit)
+    return {"job_id": job_id}
+
+
+@router.post("/discover/page")
+def discover_page(req: PageDiscoverRequest, background: BackgroundTasks):
+    if not req.url.strip().lower().startswith(("http://", "https://")):
+        raise HTTPException(status_code=400, detail="url must start with http:// or https://")
+    job_id = jobs.create(total=req.limit)
+    background.add_task(_run_page, job_id, req.url.strip(), req.limit)
     return {"job_id": job_id}
 
 

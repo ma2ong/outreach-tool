@@ -105,6 +105,7 @@ export interface Candidate {
   instagram: string | null;
   facebook: string | null;
   linkedin: string | null;
+  source?: string | null;
   duplicate_of: number | null;
 }
 export interface DiscoverJob {

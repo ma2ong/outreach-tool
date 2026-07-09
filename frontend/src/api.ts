@@ -101,6 +101,16 @@ export async function startDiscover(query: string, limit = 10): Promise<{ job_id
   return r.json();
 }
 
+export async function startPageDiscover(url: string, limit = 40): Promise<{ job_id: string }> {
+  const r = await fetch("/api/discover/page", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ url, limit }),
+  });
+  if (!r.ok) throw new Error(`discover ${r.status}`);
+  return r.json();
+}
+
 export async function fetchDiscoverJob(id: string): Promise<DiscoverJob> {
   const r = await fetch(`/api/discover/jobs/${id}`);
   if (!r.ok) throw new Error(`discover job ${r.status}`);
@@ -110,6 +120,7 @@ export async function fetchDiscoverJob(id: string): Promise<DiscoverJob> {
 export async function importLeads(country: string, candidates: {
   company_en: string; website: string; email: string | null;
   phone?: string | null; instagram?: string | null; facebook?: string | null; linkedin?: string | null;
+  source?: string | null;
 }[]): Promise<{ imported: number }> {
   const r = await fetch("/api/leads/import", {
     method: "POST",

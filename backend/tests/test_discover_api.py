@@ -44,6 +44,25 @@ def test_discover_job_and_import(tmp_path):
     assert row["linkedin"] == "linkedin.com/company/newco"
 
 
+def test_discover_page_harvests_and_tags_source(tmp_path):
+    import app.api.discover as disc
+    jobs.clear()
+    client, _ = _client(tmp_path)
+    disc.HARVEST_FN = lambda url, limit: ["alpha.com", "distco.com"]
+    r = client.post("/api/discover/page", json={"url": "https://absen.com/where-to-buy", "limit": 40})
+    assert r.status_code == 200
+    job = client.get(f"/api/discover/jobs/{r.json()['job_id']}").json()
+    assert job["status"] == "done"
+    cands = job["result"]["candidates"]
+    assert {c["domain"] for c in cands} == {"alpha.com", "distco.com"}
+    assert all(c["source"] == "名录/经销商页" for c in cands)
+
+
+def test_discover_page_rejects_bad_url(tmp_path):
+    client, _ = _client(tmp_path)
+    assert client.post("/api/discover/page", json={"url": "absen.com"}).status_code == 400
+
+
 def test_discover_jobs_404(tmp_path):
     client, _ = _client(tmp_path)
     assert client.get("/api/discover/jobs/nope").status_code == 404

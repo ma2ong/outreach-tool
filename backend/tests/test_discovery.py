@@ -22,6 +22,28 @@ def test_run_discovery_flags_duplicates_and_progress(conn):
     assert seen[-1] == (2, 2)
 
 
+def test_run_page_discovery_harvests_then_enriches(conn):
+    # conn fixture: lead 1 has website 'alpha.com'
+    harvest_fn = lambda u, limit: ["alpha.com", "distco.com"]
+    enrich_fn = lambda d: {"domain": d, "emails": [f"sales@{d}"], "email": f"sales@{d}",
+                           "phone": None, "instagram": None, "facebook": None, "linkedin": None,
+                           "company": "Dist Co"}
+    cands = discovery.run_page_discovery(conn, "https://absen.com/where-to-buy",
+                                         harvest_fn=harvest_fn, enrich_fn=enrich_fn)
+    by = {c["domain"]: c for c in cands}
+    assert by["alpha.com"]["duplicate_of"] == 1      # already in DB
+    assert by["distco.com"]["duplicate_of"] is None
+    assert by["distco.com"]["email"] == "sales@distco.com"
+    assert all(c["source"] == "名录/经销商页" for c in cands)
+
+
+def test_run_discovery_tags_search_source(conn):
+    cands = discovery.run_discovery(conn, "led", 10,
+                                    search_fn=lambda q, l: [{"domain": "x.com", "title": ""}],
+                                    enrich_fn=lambda d: {"domain": d, "emails": [], "email": None})
+    assert cands[0]["source"] == "搜索"
+
+
 def test_run_discovery_missing_contact_fields_default_none(conn):
     search_fn = lambda q, limit: [{"domain": "bare.com", "title": ""}]
     enrich_fn = lambda d: {"domain": d, "emails": [], "email": None}
