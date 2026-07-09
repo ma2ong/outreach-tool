@@ -7,6 +7,7 @@ import { LeadDrawer } from "./components/LeadDrawer";
 import { OutreachPanel } from "./components/OutreachPanel";
 import { DiscoveryPanel } from "./components/DiscoveryPanel";
 import { ConnectionPanel } from "./components/ConnectionPanel";
+import { MailboxPanel } from "./components/MailboxPanel";
 import { SequencesPanel } from "./components/SequencesPanel";
 
 type Page = "dashboard" | "leads" | "sequences" | "discovery" | "channels";
@@ -215,7 +216,7 @@ export function App() {
           )}
           {page === "sequences" && <SequencesPanel onChanged={reload} />}
           {page === "discovery" && <DiscoveryPanel onImported={reload} />}
-          {page === "channels" && <ConnectionPanel />}
+          {page === "channels" && <><ConnectionPanel /><MailboxPanel /></>}
         </div>
       </div>
       {detail && (

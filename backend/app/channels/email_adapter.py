@@ -39,3 +39,19 @@ def send_email(to: str, subject: str, body: str, attachment: str | None = None) 
     with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
         server.login(GMAIL_USER, pw)
         server.sendmail(GMAIL_USER, to, msg.as_bytes())
+
+
+def send_via(mailbox: dict, to: str, subject: str, body: str, attachment: str | None = None) -> None:
+    """Send from a configured mailbox (rotation). Port 465 -> SSL, else STARTTLS."""
+    sender = mailbox["email"]
+    msg = build_message(sender, to, subject, body, attachment)
+    host, port = mailbox["smtp_host"], int(mailbox.get("port", 465))
+    if port == 465:
+        with smtplib.SMTP_SSL(host, port) as server:
+            server.login(mailbox["username"], mailbox["password"])
+            server.sendmail(sender, to, msg.as_bytes())
+    else:
+        with smtplib.SMTP(host, port) as server:
+            server.starttls()
+            server.login(mailbox["username"], mailbox["password"])
+            server.sendmail(sender, to, msg.as_bytes())

@@ -74,6 +74,16 @@ export const STAGE_LABEL: Record<string, string> = {
   new: "新客户", contacted: "已联系", replied: "已回复",
   negotiating: "洽谈中", won: "成交", lost: "无效",
 };
+export interface Mailbox {
+  id: number;
+  email: string;
+  smtp_host: string;
+  port: number;
+  username: string;
+  daily_cap: number;
+  active: boolean;
+  sent_today: number;
+}
 export interface ChannelReach {
   have: number;
   messaged: number;

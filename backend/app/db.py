@@ -78,6 +78,23 @@ CREATE TABLE IF NOT EXISTS sequence_enrollments (
     next_due_date TEXT,
     UNIQUE(lead_no, sequence_id)
 );
+CREATE TABLE IF NOT EXISTS mailboxes (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    email TEXT NOT NULL,
+    smtp_host TEXT NOT NULL,
+    port INTEGER NOT NULL DEFAULT 465,
+    username TEXT NOT NULL,
+    password TEXT NOT NULL,
+    daily_cap INTEGER NOT NULL DEFAULT 40,
+    active INTEGER DEFAULT 1,
+    created_at TEXT
+);
+CREATE TABLE IF NOT EXISTS mailbox_sends (
+    mailbox_id INTEGER NOT NULL,
+    date TEXT NOT NULL,
+    count INTEGER DEFAULT 0,
+    PRIMARY KEY (mailbox_id, date)
+);
 """
 
 # Created after column migration so indexes on new columns (stage) don't fail on old DBs.

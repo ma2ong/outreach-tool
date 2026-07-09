@@ -201,6 +201,34 @@ export async function pollReplies(): Promise<{ matched: number; newly_replied: n
   return r.json();
 }
 
+export async function fetchMailboxes(): Promise<import("./types").Mailbox[]> {
+  const r = await fetch("/api/mailboxes");
+  if (!r.ok) throw new Error(`mailboxes ${r.status}`);
+  return r.json();
+}
+
+export async function createMailbox(m: {
+  email: string; smtp_host: string; port: number; username: string; password: string; daily_cap: number;
+}): Promise<import("./types").Mailbox> {
+  const r = await fetch("/api/mailboxes", {
+    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(m),
+  });
+  if (!r.ok) throw new Error(`mailbox ${r.status}`);
+  return r.json();
+}
+
+export async function setMailboxActive(id: number, active: boolean): Promise<void> {
+  const r = await fetch(`/api/mailboxes/${id}`, {
+    method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ active }),
+  });
+  if (!r.ok) throw new Error(`mailbox ${r.status}`);
+}
+
+export async function deleteMailbox(id: number): Promise<void> {
+  const r = await fetch(`/api/mailboxes/${id}`, { method: "DELETE" });
+  if (!r.ok) throw new Error(`mailbox ${r.status}`);
+}
+
 export async function fetchChannels(): Promise<Record<string, string>> {
   const r = await fetch("/api/channels");
   if (!r.ok) throw new Error(`channels ${r.status}`);

@@ -34,11 +34,14 @@ def _mark_messaged(conn, lead_no: int, date: str) -> None:
 
 def send_campaign(conn, lead_nos: list[int], subject: str, body: str,
                   attachment: str | None, sender: Callable[[str, str, str, str | None], None],
-                  delay_range: tuple[int, int] = (16, 28),
+                  delay_range: tuple[int, int] = (16, 28), max_send: int | None = None,
                   on_progress: Callable[[int, int], None] | None = None) -> dict:
     today = datetime.date.today().isoformat()
-    targets = eligible_leads(conn, lead_nos, "email")
+    all_targets = eligible_leads(conn, lead_nos, "email")
     total_selected = len(lead_nos)
+    # max_send caps a run to the sender mailboxes' remaining daily capacity (rotation).
+    targets = all_targets if max_send is None else all_targets[:max_send]
+    deferred = len(all_targets) - len(targets)
     sent = failed = 0
     errors: list[dict] = []
     for i, lead in enumerate(targets, 1):
@@ -56,5 +59,5 @@ def send_campaign(conn, lead_nos: list[int], subject: str, body: str,
             lo, hi = delay_range
             if hi > 0:
                 time.sleep(random.randint(lo, hi))
-    return {"sent": sent, "failed": failed,
-            "skipped": total_selected - len(targets), "errors": errors}
+    return {"sent": sent, "failed": failed, "deferred": deferred,
+            "skipped": total_selected - len(all_targets), "errors": errors}

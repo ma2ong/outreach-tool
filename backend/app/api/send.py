@@ -3,8 +3,9 @@ from pathlib import Path
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from pydantic import BaseModel
 
-from app import jobs, outreach, channel_outreach
+from app import jobs, outreach, channel_outreach, mailboxes
 from app.api import channels as channels_api
+from app.channels import email_adapter
 from app.channels.email_adapter import send_email
 from app.main_deps import DB_PATH, get_conn
 from app.db import connect
@@ -24,12 +25,26 @@ class EmailSendRequest(BaseModel):
     attachment: str | None = DEFAULT_ATTACHMENT
 
 
+def _rotating_sender(conn):
+    """Per-email sender that rotates configured mailboxes and records usage."""
+    def send(to, subject, body, attachment):
+        mbx = mailboxes.pick_mailbox(conn)
+        if mbx is None:
+            raise RuntimeError("no mailbox capacity")
+        email_adapter.send_via(mbx, to, subject, body, attachment)
+        mailboxes.record_send(conn, mbx["id"])
+    return send
+
+
 def _run(job_id: str, req: EmailSendRequest):
     conn = connect(DB_PATH)
     try:
+        rotate = mailboxes.has_active(conn)
+        sender = _rotating_sender(conn) if rotate else SENDER
+        max_send = mailboxes.total_remaining(conn) if rotate else None
         result = outreach.send_campaign(
             conn, req.lead_nos, req.subject, req.body, req.attachment,
-            sender=SENDER, delay_range=DELAY_RANGE,
+            sender=sender, delay_range=DELAY_RANGE, max_send=max_send,
             on_progress=lambda done, total: jobs.update(job_id, done))
         jobs.finish(job_id, result)
     except Exception as exc:  # noqa: BLE001
@@ -41,9 +56,13 @@ def _run(job_id: str, req: EmailSendRequest):
 @router.post("/email")
 def send_email_campaign(req: EmailSendRequest, background: BackgroundTasks, conn=Depends(get_conn)):
     eligible = outreach.eligible_leads(conn, req.lead_nos, "email")
-    job_id = jobs.create(total=len(eligible))
+    resp = {"job_id": None, "eligible": len(eligible), "selected": len(req.lead_nos)}
+    if mailboxes.has_active(conn):
+        resp["will_send"] = min(len(eligible), mailboxes.total_remaining(conn))
+    job_id = jobs.create(total=resp.get("will_send", len(eligible)))
+    resp["job_id"] = job_id
     background.add_task(_run, job_id, req)
-    return {"job_id": job_id, "eligible": len(eligible), "selected": len(req.lead_nos)}
+    return resp
 
 
 @router.get("/jobs/{job_id}")
