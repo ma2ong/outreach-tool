@@ -3,6 +3,7 @@ import { fetchLeads, fetchStats, markReplied } from "./api";
 import type { Lead, Stats } from "./types";
 import { Dashboard } from "./components/Dashboard";
 import { LeadsTable } from "./components/LeadsTable";
+import { LeadDrawer } from "./components/LeadDrawer";
 import { OutreachPanel } from "./components/OutreachPanel";
 import { DiscoveryPanel } from "./components/DiscoveryPanel";
 import { ConnectionPanel } from "./components/ConnectionPanel";
@@ -36,6 +37,7 @@ export function App() {
   const [has, setHas] = useState("");
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<Set<number>>(new Set());
+  const [detail, setDetail] = useState<Lead | null>(null);
   const [err, setErr] = useState("");
 
   function reload() {
@@ -111,7 +113,7 @@ export function App() {
                   共 {leads.length} 条{leads.length > MAX_ROWS ? `（显示前 ${MAX_ROWS}，用筛选/搜索缩小）` : ""} · 已选 {selected.size}
                 </span>
               </div>
-              <LeadsTable leads={shown} selected={selected} onToggle={toggle} onToggleAll={toggleAll} onReply={reply} />
+              <LeadsTable leads={shown} selected={selected} onToggle={toggle} onToggleAll={toggleAll} onReply={reply} onOpen={setDetail} />
               {selected.size > 0 && (
                 <div className="action-bar">
                   <OutreachPanel selected={[...selected]} onDone={reload} />
@@ -123,6 +125,13 @@ export function App() {
           {page === "channels" && <ConnectionPanel />}
         </div>
       </div>
+      {detail && (
+        <LeadDrawer
+          lead={detail}
+          onClose={() => setDetail(null)}
+          onChange={(u) => { setDetail(u); setLeads((ls) => ls.map((l) => (l.no === u.no ? u : l))); }}
+        />
+      )}
     </div>
   );
 }

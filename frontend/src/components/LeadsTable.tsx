@@ -1,4 +1,6 @@
+import type { MouseEvent } from "react";
 import type { Lead } from "../types";
+import { STAGE_LABEL } from "../types";
 
 const CHANNELS = [
   { key: "email", label: "Email" },
@@ -33,34 +35,34 @@ function channelState(l: Lead, channel: string): "replied" | "messaged" | "untou
 
 const STATE_TEXT = { replied: "已回复", messaged: "已触达", untouched: "未触达" } as const;
 
-export function LeadsTable({ leads, selected, onToggle, onToggleAll, onReply }: {
+export function LeadsTable({ leads, selected, onToggle, onToggleAll, onReply, onOpen }: {
   leads: Lead[]; selected: Set<number>;
   onToggle: (no: number) => void; onToggleAll: (checked: boolean) => void;
-  onReply: (no: number, channel: string) => void;
+  onReply: (no: number, channel: string) => void; onOpen: (l: Lead) => void;
 }) {
   const allChecked = leads.length > 0 && leads.every((l) => selected.has(l.no));
+  const stop = (e: MouseEvent) => e.stopPropagation();
   return (
     <div className="table-wrap">
       <table className="table">
         <thead><tr>
           <th><input type="checkbox" checked={allChecked} onChange={(e) => onToggleAll(e.target.checked)} /></th>
-          <th>#</th><th>公司</th><th>国家</th><th>城市</th>
+          <th>#</th><th>公司</th><th>阶段</th><th>国家</th><th>城市</th>
           <th>邮箱</th><th>电话 / WhatsApp</th><th>IG</th><th>FB</th><th>渠道状态</th>
         </tr></thead>
         <tbody>
           {leads.map((l) => {
             const wa = l.phone ? waNumber(l.phone) : null;
             return (
-              <tr key={l.no}>
-                <td><input type="checkbox" checked={selected.has(l.no)} onChange={() => onToggle(l.no)} /></td>
+              <tr key={l.no} onClick={() => onOpen(l)} style={{ cursor: "pointer" }}>
+                <td onClick={stop}><input type="checkbox" checked={selected.has(l.no)} onChange={() => onToggle(l.no)} /></td>
                 <td className="num muted">{l.no}</td>
-                <td>{l.website
-                  ? <a href={`https://${l.website.replace(/^https?:\/\//, "")}`} target="_blank" rel="noreferrer">{l.company_en}</a>
-                  : l.company_en}</td>
+                <td>{l.company_en}</td>
+                <td><span className={`stage-badge stage-${l.stage || "new"}`}>{STAGE_LABEL[l.stage] ?? l.stage}</span></td>
                 <td>{l.country}</td>
                 <td>{l.city}</td>
-                <td>{l.email ? <a href={`mailto:${l.email}`}>{l.email}</a> : <span className="muted">—</span>}</td>
-                <td className="num">{l.phone
+                <td onClick={stop}>{l.email ? <a href={`mailto:${l.email}`}>{l.email}</a> : <span className="muted">—</span>}</td>
+                <td className="num" onClick={stop}>{l.phone
                   ? (wa
                     ? <a href={`https://wa.me/${wa}`} target="_blank" rel="noreferrer"
                         title="点击打开 WhatsApp 对话" style={{ color: "var(--green)" }}>
@@ -68,13 +70,13 @@ export function LeadsTable({ leads, selected, onToggle, onToggleAll, onReply }: 
                       </a>
                     : l.phone)
                   : <span className="muted">—</span>}</td>
-                <td>{l.instagram
+                <td onClick={stop}>{l.instagram
                   ? <a href={igUrl(l.instagram)} target="_blank" rel="noreferrer">@{l.instagram.replace(/^@/, "")}</a>
                   : <span className="muted">—</span>}</td>
-                <td>{l.facebook
+                <td onClick={stop}>{l.facebook
                   ? <a href={fbUrl(l.facebook)} target="_blank" rel="noreferrer">{l.facebook.replace(/^https?:\/\/(www\.)?facebook\.com\//, "")}</a>
                   : <span className="muted">—</span>}</td>
-                <td>
+                <td onClick={stop}>
                   {CHANNELS.map(({ key, label }) => {
                     const st = channelState(l, key);
                     const clickable = st === "messaged";

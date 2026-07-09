@@ -6,11 +6,19 @@ export interface OutreachStatus {
   reply_received: boolean;
   exclude_reason: string | null;
 }
+export interface Note {
+  id: number;
+  created_at: string | null;
+  text: string;
+}
 export interface Lead {
   no: number;
   company_en: string;
+  company_local: string | null;
   country: string | null;
+  region: string | null;
   city: string | null;
+  contact_name: string | null;
   email: string | null;
   phone: string | null;
   website: string | null;
@@ -19,8 +27,18 @@ export interface Lead {
   linkedin: string | null;
   whatsapp_verified: boolean;
   business: string | null;
+  stage: string;
+  tags: string | null;
+  follow_up_date: string | null;
+  next_action: string | null;
   outreach: OutreachStatus[];
+  notes: Note[];
 }
+export const STAGES = ["new", "contacted", "replied", "negotiating", "won", "lost"] as const;
+export const STAGE_LABEL: Record<string, string> = {
+  new: "新客户", contacted: "已联系", replied: "已回复",
+  negotiating: "洽谈中", won: "成交", lost: "无效",
+};
 export interface ChannelReach {
   have: number;
   messaged: number;

@@ -26,10 +26,21 @@ test("selecting a lead reveals outreach action bar", async ({ page }) => {
   await expect(page.getByRole("button", { name: "发送邮件" })).toBeVisible();
 });
 
+// SAFETY: opens the detail drawer and reads it — does not save edits or send anything.
+test("clicking a lead row opens detail drawer with stage and notes", async ({ page }) => {
+  await page.goto("/");
+  await page.locator("table tbody tr").first().locator("td").nth(2).click();
+  await expect(page.locator(".drawer")).toBeVisible();
+  await expect(page.getByText("销售阶段")).toBeVisible();
+  await expect(page.getByText("跟进记录", { exact: true })).toBeVisible();
+  await page.locator(".drawer-close").click();
+  await expect(page.locator(".drawer")).toHaveCount(0);
+});
+
 test("dashboard shows stats", async ({ page }) => {
   await page.goto("/");
   await page.getByRole("button", { name: /仪表盘/ }).click();
-  await expect(page.getByText("客户总数")).toBeVisible();
+  await expect(page.getByText("客户总数").first()).toBeVisible();
   await expect(page.getByText(/国家分布/)).toBeVisible();
 });
 

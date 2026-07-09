@@ -19,6 +19,26 @@ export async function fetchQuota(): Promise<Record<string, { sent_today: number;
   return r.json();
 }
 
+export async function updateLead(no: number, fields: Partial<Lead>): Promise<Lead> {
+  const r = await fetch(`/api/leads/${no}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(fields),
+  });
+  if (!r.ok) throw new Error(`update ${r.status}`);
+  return r.json();
+}
+
+export async function addNote(no: number, text: string): Promise<Lead> {
+  const r = await fetch(`/api/leads/${no}/notes`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ text }),
+  });
+  if (!r.ok) throw new Error(`note ${r.status}`);
+  return r.json();
+}
+
 export async function markReplied(no: number, channel: string): Promise<void> {
   const r = await fetch(`/api/leads/${no}/reply`, {
     method: "POST",

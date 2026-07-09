@@ -144,6 +144,39 @@ textarea.input { width: 100%; resize: vertical; }
 .badge.clickable { cursor: pointer; }
 .badge.clickable:hover { filter: brightness(1.2); }
 
+/* Lead detail drawer */
+.drawer-overlay {
+  position: fixed; inset: 0; z-index: 40;
+  background: rgba(0, 0, 0, 0.45); display: flex; justify-content: flex-end;
+}
+.drawer {
+  width: 440px; max-width: 92vw; height: 100vh; overflow-y: auto;
+  background: var(--surface); border-left: 1px solid var(--border);
+  padding: 20px; box-shadow: -8px 0 24px rgba(0, 0, 0, 0.3);
+}
+.drawer h2 { margin: 0 0 2px; font-size: 18px; }
+.drawer-close {
+  float: right; background: none; border: none; color: var(--dim);
+  font-size: 22px; line-height: 1; cursor: pointer; padding: 0 4px;
+}
+.field { margin-bottom: 10px; }
+.field label { display: block; font-size: 11px; color: var(--dim); margin-bottom: 3px; }
+.field .input { width: 100%; }
+.field-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 10px; }
+.section-title { font-size: 12px; color: var(--dim); font-weight: 600; margin: 18px 0 8px; text-transform: uppercase; letter-spacing: 0.4px; }
+
+.stage-badge { display: inline-flex; align-items: center; gap: 5px; padding: 3px 10px; border-radius: 20px; font-size: 12px; font-weight: 600; }
+.stage-new { background: var(--gray-bg); color: var(--gray); }
+.stage-contacted { background: var(--blue-bg); color: var(--blue); }
+.stage-replied { background: var(--green-bg); color: var(--green); }
+.stage-negotiating { background: rgba(217,162,60,0.16); color: var(--warn); }
+.stage-won { background: var(--green-bg); color: var(--green); }
+.stage-lost { background: rgba(229,83,75,0.14); color: var(--danger); }
+
+.note-item { border-left: 2px solid var(--border); padding: 4px 0 8px 10px; margin-bottom: 6px; }
+.note-item .ts { font-size: 11px; color: var(--dim); }
+.tag-chip { display: inline-block; background: var(--surface-2); border: 1px solid var(--border); border-radius: 12px; padding: 1px 9px; font-size: 12px; margin: 0 4px 4px 0; }
+
 .stat-card { min-width: 150px; flex: 1; }
 .stat-label { font-size: 12px; color: var(--dim); }
 .stat-value { font-size: 26px; font-weight: 700; font-variant-numeric: tabular-nums; margin-top: 2px; }
