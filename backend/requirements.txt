@@ -4,3 +4,5 @@ pydantic
 httpx
 pytest
 playwright
+
+openpyxl>=3.1

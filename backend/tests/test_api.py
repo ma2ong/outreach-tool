@@ -71,6 +71,22 @@ def test_mark_replied_upserts_when_no_row(tmp_path):
     assert any(o["channel"] == "whatsapp" and o["status"] == "replied" for o in lead["outreach"])
 
 
+def test_export_xlsx(tmp_path):
+    r = _client(tmp_path).get("/api/leads/export?fmt=xlsx")
+    assert r.status_code == 200
+    assert "spreadsheetml" in r.headers["content-type"]
+    assert r.headers["content-disposition"].endswith('.xlsx"')
+    assert r.content[:2] == b"PK"  # xlsx is a zip
+
+
+def test_export_csv_respects_filter(tmp_path):
+    r = _client(tmp_path).get("/api/leads/export?fmt=csv&country=USA")
+    assert r.status_code == 200
+    text = r.content.decode("utf-8-sig")
+    assert "Alpha" in text
+    assert "Beta" not in text  # Beta is Brazil, filtered out
+
+
 def test_patch_lead_edits_fields(tmp_path):
     client = _client(tmp_path)
     r = client.patch("/api/leads/1", json={"phone": "+56 9 1", "stage": "negotiating", "tags": "hot"})

@@ -1,7 +1,9 @@
-from fastapi import APIRouter, Depends, HTTPException
+import datetime as dt
+
+from fastapi import APIRouter, Depends, HTTPException, Response
 from pydantic import BaseModel
 
-from app import repository as repo
+from app import export, repository as repo
 from app.main_deps import get_conn
 from app.models import Lead
 
@@ -44,6 +46,24 @@ def list_leads(country: str | None = None, channel: str | None = None,
                conn=Depends(get_conn)):
     return repo.list_leads(conn, country=country, channel=channel, status=status,
                            search=search, has=has, follow_up=follow_up)
+
+
+@router.get("/leads/export")
+def export_leads(country: str | None = None, channel: str | None = None,
+                 status: str | None = None, search: str | None = None,
+                 has: str | None = None, follow_up: str | None = None,
+                 fmt: str = "xlsx", conn=Depends(get_conn)):
+    leads = repo.list_leads(conn, country=country, channel=channel, status=status,
+                            search=search, has=has, follow_up=follow_up)
+    stamp = dt.date.today().isoformat()
+    if fmt == "csv":
+        return Response(
+            content=export.build_csv(leads), media_type="text/csv",
+            headers={"Content-Disposition": f'attachment; filename="leads_{stamp}.csv"'})
+    return Response(
+        content=export.build_xlsx(leads),
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f'attachment; filename="leads_{stamp}.xlsx"'})
 
 
 @router.get("/leads/{no}", response_model=Lead)

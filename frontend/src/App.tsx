@@ -10,6 +10,11 @@ import { ConnectionPanel } from "./components/ConnectionPanel";
 
 type Page = "dashboard" | "leads" | "discovery" | "channels";
 
+function exportQuery(params: Record<string, string>): string {
+  const qs = new URLSearchParams(Object.entries(params).filter(([, v]) => v)).toString();
+  return qs ? "&" + qs : "";
+}
+
 const PAGES: { id: Page; label: string; ico: string }[] = [
   { id: "dashboard", label: "仪表盘", ico: "▦" },
   { id: "leads", label: "客户库", ico: "☰" },
@@ -120,6 +125,9 @@ export function App() {
                   title="只看已触达但超过7天没回复、或到跟进日期的客户">
                   待跟进{stats?.funnel?.follow_up_due ? ` ${stats.funnel.follow_up_due}` : ""}
                 </button>
+                <a className="btn btn-sm"
+                  href={`/api/leads/export?fmt=xlsx${exportQuery({ country, channel, status, has, follow_up: followUp, search })}`}
+                  title="按当前筛选导出 Excel">⬇ 导出 Excel</a>
                 <span className="muted">
                   共 {leads.length} 条{leads.length > MAX_ROWS ? `（显示前 ${MAX_ROWS}，用筛选/搜索缩小）` : ""} · 已选 {selected.size}
                 </span>
