@@ -1,8 +1,12 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from pydantic import BaseModel
 
+from app import jobs, sequence_send
 from app import sequences as seq
-from app.main_deps import get_conn
+from app.api import channels as channels_api
+from app.api import send as send_api
+from app.db import connect
+from app.main_deps import DB_PATH, get_conn
 from app.models import DueItem, Sequence, SequenceStep
 
 router = APIRouter(prefix="/api/sequences")
@@ -27,6 +31,25 @@ class EnrollRequest(BaseModel):
 
 class AdvanceRequest(BaseModel):
     enrollment_ids: list[int]
+
+
+class SendDueRequest(BaseModel):
+    enrollment_ids: list[int]
+    image: str | None = send_api.DEFAULT_ATTACHMENT
+
+
+def _run_send(job_id: str, enrollment_ids: list[int], image: str | None):
+    conn = connect(DB_PATH)
+    try:
+        result = sequence_send.send_due(
+            conn, enrollment_ids, sender=send_api.SENDER, engine=channels_api.ENGINE,
+            image_default=image,
+            on_progress=lambda done, total: jobs.update(job_id, done))
+        jobs.finish(job_id, result)
+    except Exception as exc:  # noqa: BLE001
+        jobs.fail(job_id, str(exc))
+    finally:
+        conn.close()
 
 
 @router.get("", response_model=list[Sequence])
@@ -65,3 +88,12 @@ def advance(req: AdvanceRequest, conn=Depends(get_conn)):
     for eid in req.enrollment_ids:
         seq.advance_enrollment(conn, eid)
     return {"advanced": len(req.enrollment_ids)}
+
+
+@router.post("/send")
+def send_due(req: SendDueRequest, background: BackgroundTasks, conn=Depends(get_conn)):
+    due_ids = {d["enrollment_id"] for d in seq.due_queue(conn)}
+    targets = [e for e in req.enrollment_ids if e in due_ids]
+    job_id = jobs.create(total=len(targets))
+    background.add_task(_run_send, job_id, targets, req.image)
+    return {"job_id": job_id, "will_send": len(targets), "selected": len(req.enrollment_ids)}

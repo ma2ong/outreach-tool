@@ -54,6 +54,35 @@ def test_due_channel_filter(tmp_path):
     assert client.get("/api/sequences/due?channel=whatsapp").json() == []
 
 
+def test_send_due_runs_job_and_advances(tmp_path):
+    import app.api.send as send_api
+    import app.api.sequences as sequences_api
+    from app import jobs
+    jobs.clear()
+    sent = []
+    send_api.SENDER = lambda to, s, b, a: sent.append(to)
+    db = str(tmp_path / "t.db")
+    c = connect(db)
+    init_schema(c)
+    c.execute("INSERT INTO leads(no, company_en, email) VALUES (1,'Alpha','a@alpha.com')")
+    c.commit()
+    c.close()
+    main.app.dependency_overrides[main.get_conn] = lambda: connect(db)
+    sequences_api.DB_PATH = db  # background job opens its own connection via this global
+    client = TestClient(main.app)
+
+    sid = client.post("/api/sequences", json=_SEQ).json()["id"]
+    client.post(f"/api/sequences/{sid}/enroll", json={"lead_nos": [1]})
+    eid = client.get("/api/sequences/due").json()[0]["enrollment_id"]
+    r = client.post("/api/sequences/send", json={"enrollment_ids": [eid], "image": None})
+    assert r.json()["will_send"] == 1
+    job = client.get(f"/api/send/jobs/{r.json()['job_id']}").json()
+    assert job["status"] == "done" and job["result"]["sent"] == 1
+    assert sent == ["a@alpha.com"]
+    # advanced to step 1 -> no longer due today
+    assert client.get("/api/sequences/due").json() == []
+
+
 def test_validation(tmp_path):
     client = _client(tmp_path)
     assert client.post("/api/sequences", json={"name": " ", "channel": "email",
