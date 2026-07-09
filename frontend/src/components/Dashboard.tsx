@@ -22,9 +22,10 @@ function ReachRow({ channel, r }: { channel: string; r: ChannelReach }) {
   );
 }
 
-export function Dashboard({ stats }: { stats: Stats }) {
+export function Dashboard({ stats, onGotoFollowUp }: { stats: Stats; onGotoFollowUp: () => void }) {
   const [quota, setQuota] = useState<Record<string, { sent_today: number; cap: number }>>({});
   useEffect(() => { fetchQuota().then(setQuota).catch(() => {}); }, []);
+  const due = stats.funnel?.follow_up_due ?? 0;
 
   const f = stats.funnel;
   const funnelBase = Math.max(f?.total ?? stats.total, 1);
@@ -39,6 +40,17 @@ export function Dashboard({ stats }: { stats: Stats }) {
   const maxC = countries[0]?.[1] ?? 1;
   return (
     <>
+      {due > 0 && (
+        <div className="card" style={{ marginBottom: 16, borderColor: "var(--warn)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "space-between" }}
+          onClick={onGotoFollowUp} title="查看待跟进客户">
+          <div>
+            <div className="stat-label">⏰ 该跟进了</div>
+            <div className="stat-value" style={{ color: "var(--warn)" }}>{due} 家客户</div>
+            <div className="muted" style={{ fontSize: 12 }}>已触达超过 7 天没回复、或到了你设的跟进日期 —— 点这里去处理</div>
+          </div>
+          <span className="btn btn-primary btn-sm">去跟进 →</span>
+        </div>
+      )}
       <StatCards stats={stats} />
       <div className="cards-row">
         {Object.entries(quota).map(([ch, q]) => (

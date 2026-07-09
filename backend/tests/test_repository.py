@@ -36,6 +36,44 @@ def test_list_leads_untouched_excludes_replied(conn):
     assert [l.no for l in repo.list_leads(conn, channel="email", status="untouched")] == [3]
 
 
+def test_list_leads_follow_up_due(conn):
+    # lead1 email messaged 10d ago -> due; lead2 messaged 2d ago -> not due
+    conn.execute("UPDATE outreach SET message_sent_date=date('now','-10 days') WHERE lead_no=1 AND channel='email'")
+    conn.execute("UPDATE outreach SET message_sent_date=date('now','-10 days') WHERE lead_no=1 AND channel='instagram'")
+    conn.execute("UPDATE outreach SET status='messaged', message_sent_date=date('now','-2 days') WHERE lead_no=2 AND channel='email'")
+    conn.commit()
+    due = {l.no for l in repo.list_leads(conn, follow_up="due")}
+    assert 1 in due
+    assert 2 not in due
+
+
+def test_follow_up_due_drops_after_reply(conn):
+    conn.execute("UPDATE outreach SET message_sent_date=date('now','-10 days') WHERE lead_no=1")
+    conn.commit()
+    assert 1 in {l.no for l in repo.list_leads(conn, follow_up="due")}
+    repo.mark_replied(conn, 1, "email")
+    assert 1 not in {l.no for l in repo.list_leads(conn, follow_up="due")}
+
+
+def test_follow_up_due_excludes_won_lost(conn):
+    conn.execute("UPDATE outreach SET message_sent_date=date('now','-10 days') WHERE lead_no=1 AND channel='email'")
+    conn.commit()
+    repo.update_lead(conn, 1, {"stage": "won"})
+    assert 1 not in {l.no for l in repo.list_leads(conn, follow_up="due")}
+
+
+def test_follow_up_due_manual_date(conn):
+    # lead2 never messaged, but has a manual follow-up date in the past
+    repo.update_lead(conn, 2, {"follow_up_date": "2020-01-01"})
+    assert 2 in {l.no for l in repo.list_leads(conn, follow_up="due")}
+
+
+def test_stats_follow_up_due_count(conn):
+    conn.execute("UPDATE outreach SET message_sent_date=date('now','-10 days') WHERE lead_no=1 AND channel='email'")
+    conn.commit()
+    assert repo.stats(conn).funnel["follow_up_due"] >= 1
+
+
 def test_list_leads_has_contact(conn):
     conn.execute("UPDATE leads SET phone='+123456789', email='a@b.com' WHERE no=1")
     conn.execute("UPDATE leads SET email='' WHERE no=2")
@@ -117,7 +155,10 @@ def test_stats_reach_and_funnel(conn):
     # instagram: have {1,3}=2, messaged {1}=1, untouched {3}=1
     assert s.reach["instagram"] == {"have": 2, "messaged": 1, "replied": 0, "untouched": 1}
     # funnel: total 3, with_contact 3, touched {1,3}=2, replied 0
-    assert s.funnel == {"total": 3, "with_contact": 3, "touched": 2, "replied": 0}
+    assert s.funnel["total"] == 3
+    assert s.funnel["with_contact"] == 3
+    assert s.funnel["touched"] == 2
+    assert s.funnel["replied"] == 0
 
 
 def test_stats_reach_counts_replied(conn):

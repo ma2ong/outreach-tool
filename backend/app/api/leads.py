@@ -40,9 +40,10 @@ class NoteRequest(BaseModel):
 @router.get("/leads", response_model=list[Lead])
 def list_leads(country: str | None = None, channel: str | None = None,
                status: str | None = None, search: str | None = None,
-               has: str | None = None, conn=Depends(get_conn)):
+               has: str | None = None, follow_up: str | None = None,
+               conn=Depends(get_conn)):
     return repo.list_leads(conn, country=country, channel=channel, status=status,
-                           search=search, has=has)
+                           search=search, has=has, follow_up=follow_up)
 
 
 @router.get("/leads/{no}", response_model=Lead)

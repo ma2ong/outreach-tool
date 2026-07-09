@@ -35,6 +35,7 @@ export function App() {
   const [channel, setChannel] = useState("");
   const [status, setStatus] = useState("");
   const [has, setHas] = useState("");
+  const [followUp, setFollowUp] = useState("");
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [detail, setDetail] = useState<Lead | null>(null);
@@ -42,10 +43,10 @@ export function App() {
 
   function reload() {
     fetchStats().then(setStats).catch((e) => setErr(String(e)));
-    fetchLeads({ country, channel, status, search, has }).then(setLeads).catch((e) => setErr(String(e)));
+    fetchLeads({ country, channel, status, search, has, follow_up: followUp }).then(setLeads).catch((e) => setErr(String(e)));
   }
   useEffect(() => { fetchStats().then(setStats).catch((e) => setErr(String(e))); }, []);
-  useEffect(() => { fetchLeads({ country, channel, status, search, has }).then(setLeads).catch((e) => setErr(String(e))); }, [country, channel, status, search, has]);
+  useEffect(() => { fetchLeads({ country, channel, status, search, has, follow_up: followUp }).then(setLeads).catch((e) => setErr(String(e))); }, [country, channel, status, search, has, followUp]);
 
   async function reply(no: number, channel: string) {
     try { await markReplied(no, channel); reload(); } catch (e) { setErr(String(e)); }
@@ -82,7 +83,12 @@ export function App() {
         </header>
         <div className="content">
           {err && <div className="error-text" style={{ marginBottom: 12 }}>加载失败：{err}</div>}
-          {page === "dashboard" && stats && <Dashboard stats={stats} />}
+          {page === "dashboard" && stats && (
+            <Dashboard stats={stats} onGotoFollowUp={() => {
+              setCountry(""); setChannel(""); setStatus(""); setHas(""); setSearch("");
+              setFollowUp("due"); setPage("leads");
+            }} />
+          )}
           {page === "leads" && (
             <>
               <div className="filter-bar">
@@ -109,6 +115,11 @@ export function App() {
                   <option value="email">有邮箱</option>
                 </select>
                 <input className="input" placeholder="搜索公司/网站/城市" value={search} onChange={(e) => setSearch(e.target.value)} />
+                <button className={`btn btn-sm${followUp === "due" ? " btn-primary" : ""}`}
+                  onClick={() => setFollowUp(followUp === "due" ? "" : "due")}
+                  title="只看已触达但超过7天没回复、或到跟进日期的客户">
+                  待跟进{stats?.funnel?.follow_up_due ? ` ${stats.funnel.follow_up_due}` : ""}
+                </button>
                 <span className="muted">
                   共 {leads.length} 条{leads.length > MAX_ROWS ? `（显示前 ${MAX_ROWS}，用筛选/搜索缩小）` : ""} · 已选 {selected.size}
                 </span>

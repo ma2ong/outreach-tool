@@ -34,8 +34,22 @@ def _outreach_for(conn: sqlite3.Connection, lead_nos: list[int]) -> dict[int, li
 _HAS_COLS = {"phone": "phone", "instagram": "instagram", "email": "email"}
 _TOUCHED = "status IN ('messaged','replied')"
 
+# "Due for follow-up": messaged >= N days ago with no reply and not won/lost,
+# OR a manually set follow-up date that has arrived.
+def _due_clause(days: int) -> tuple[str, list]:
+    clause = (
+        "(((l.stage IS NULL OR l.stage NOT IN ('won','lost'))"
+        " AND l.no IN (SELECT lead_no FROM outreach WHERE status='messaged'"
+        "   AND message_sent_date IS NOT NULL AND message_sent_date <= date('now', ?))"
+        " AND l.no NOT IN (SELECT lead_no FROM outreach WHERE status='replied'))"
+        " OR (l.follow_up_date IS NOT NULL AND l.follow_up_date != ''"
+        "   AND l.follow_up_date <= date('now')))"
+    )
+    return clause, [f"-{days} days"]
 
-def list_leads(conn, country=None, channel=None, status=None, search=None, has=None) -> list[Lead]:
+
+def list_leads(conn, country=None, channel=None, status=None, search=None, has=None,
+               follow_up=None, follow_up_days=7) -> list[Lead]:
     where, params = [], []
     if country:
         where.append("l.country = ?")
@@ -43,6 +57,10 @@ def list_leads(conn, country=None, channel=None, status=None, search=None, has=N
     if search:
         where.append("(l.company_en LIKE ? OR l.website LIKE ? OR l.city LIKE ?)")
         params += [f"%{search}%"] * 3
+    if follow_up == "due":
+        clause, cp = _due_clause(follow_up_days)
+        where.append(clause)
+        params += cp
     if has:
         col = _HAS_COLS.get(has)
         if col:
@@ -172,6 +190,8 @@ def stats(conn) -> Stats:
                           " WHERE status IN ('messaged','replied')"),
         "replied": _count("SELECT COUNT(DISTINCT lead_no) c FROM outreach WHERE status='replied'"),
     }
+    _due_c, _due_p = _due_clause(7)
+    funnel["follow_up_due"] = _count(f"SELECT COUNT(*) c FROM leads l WHERE {_due_c}", _due_p)
     return Stats(total=total, by_country=by_country, by_channel_status=by_cs,
                  reach=reach, funnel=funnel)
 

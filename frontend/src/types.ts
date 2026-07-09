@@ -50,7 +50,7 @@ export interface Stats {
   by_country: Record<string, number>;
   by_channel_status: Record<string, Record<string, number>>;
   reach: Record<string, ChannelReach>;
-  funnel: { total: number; with_contact: number; touched: number; replied: number };
+  funnel: { total: number; with_contact: number; touched: number; replied: number; follow_up_due: number };
 }
 export interface SendJob {
   id: string;
