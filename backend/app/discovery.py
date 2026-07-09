@@ -19,7 +19,7 @@ def run_discovery(conn, query: str, limit: int = 10,
                                   company_en=d.get("title") or None)
         out.append({
             "domain": d["domain"],
-            "title": d.get("title") or d["domain"],
+            "title": d.get("title") or info.get("company") or d["domain"],
             "email": info.get("email"),
             "emails": info.get("emails", []),
             "phone": info.get("phone"),

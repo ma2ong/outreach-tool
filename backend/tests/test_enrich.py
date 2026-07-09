@@ -79,3 +79,19 @@ def test_enrich_domain_no_contacts_has_none_fields():
     assert out["instagram"] is None
     assert out["facebook"] is None
     assert out["linkedin"] is None
+
+
+def test_extract_emails_drops_noreply():
+    got = enrich.extract_emails("noreply@acme.com no-reply@acme.com sales@acme.com donotreply@x.com")
+    assert got == ["sales@acme.com"]
+
+
+def test_extract_company_name_from_markdown_title():
+    assert enrich.extract_company_name("# LED Factory Chile | Pantallas LED\nbody") == "LED Factory Chile"
+    assert enrich.extract_company_name("Title: Acme LED - Home") == "Acme LED"
+    assert enrich.extract_company_name("no heading here at all") is None
+
+
+def test_enrich_domain_returns_company_guess():
+    out = enrich.enrich_domain("acme.com", fetch=lambda url: "# Acme Displays – LED walls\ninfo@acme.com")
+    assert out["company"] == "Acme Displays"

@@ -4,8 +4,12 @@ from typing import Callable
 from app.jina import fetch as jina_fetch
 
 _EMAIL = re.compile(r'[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}', re.I)
-_JUNK = ("sentry", "wixpress", "example.", "@2x", "@3x", ".png", ".jpg", ".jpeg", ".gif", ".webp")
+_JUNK = ("sentry", "wixpress", "example.", "@2x", "@3x", ".png", ".jpg", ".jpeg", ".gif", ".webp",
+         "noreply", "no-reply", "donotreply", "do-not-reply")
 _PREFER = ("info@", "sales@", "contact@", "hello@", "enquiries@", "office@")
+
+_TITLE = re.compile(r'^\s*(?:#\s+|Title:\s*)(.+)$', re.I | re.M)
+_TITLE_SEP = re.compile(r'\s+[|\-–—]\s+')
 
 _WA = re.compile(r'(?:wa\.me/|api\.whatsapp\.com/send\?phone=)(?:%2B|\+)?(\d{8,15})', re.I)
 _TEL = re.compile(r'tel:\+?([\d\-().\s]{8,20})', re.I)
@@ -73,15 +77,27 @@ def extract_socials(text: str) -> dict:
     return {"instagram": ig, "facebook": fb, "linkedin": li}
 
 
+def extract_company_name(text: str) -> str | None:
+    """Best-effort company name from a page title / first markdown H1."""
+    m = _TITLE.search(text)
+    if not m:
+        return None
+    name = _TITLE_SEP.split(m.group(1).strip())[0].strip()
+    return name or None
+
+
 def enrich_domain(domain: str, fetch: Callable[[str], str] = jina_fetch) -> dict:
     emails: list[str] = []
     phones: list[str] = []
     socials = {"instagram": None, "facebook": None, "linkedin": None}
+    company = None
     for path in ("/contact", "/contact-us", ""):
         try:
             text = fetch(f"https://{domain}{path}")
         except Exception:  # noqa: BLE001
             continue
+        if company is None:
+            company = extract_company_name(text)
         for e in extract_emails(text):
             if e not in emails:
                 emails.append(e)
@@ -100,5 +116,5 @@ def enrich_domain(domain: str, fetch: Callable[[str], str] = jina_fetch) -> dict
             break
     if best is None and emails:
         best = emails[0]
-    return {"domain": domain, "emails": emails, "email": best,
+    return {"domain": domain, "emails": emails, "email": best, "company": company,
             "phone": phones[0] if phones else None, "phones": phones, **socials}
