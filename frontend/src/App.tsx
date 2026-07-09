@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { fetchLeadsPage, fetchStats, markReplied, fetchSequences, enrollLeads } from "./api";
+import { fetchLeadsPage, fetchStats, markReplied, fetchSequences, enrollLeads, startVerify, fetchVerifyJob } from "./api";
 import type { Lead, Stats, Sequence } from "./types";
 import { Dashboard } from "./components/Dashboard";
 import { LeadsTable } from "./components/LeadsTable";
@@ -90,6 +90,27 @@ export function App() {
     try { await markReplied(no, channel); reload(); } catch (e) { setErr(String(e)); }
   }
 
+  const [verifyMsg, setVerifyMsg] = useState("");
+  const [verifying, setVerifying] = useState(false);
+  async function verifyEmails() {
+    setVerifying(true); setVerifyMsg("验证邮箱中（查 MX 记录）…");
+    try {
+      const scope = selected.size > 0 ? [...selected] : undefined;
+      const { job_id } = await startVerify(scope);
+      const poll = setInterval(async () => {
+        const j = await fetchVerifyJob(job_id);
+        if (j.status !== "running") {
+          clearInterval(poll); setVerifying(false);
+          if (j.result && "checked" in j.result) {
+            const r = j.result;
+            setVerifyMsg(`已验证 ${r.checked} 个邮箱：有效 ${r.valid}，角色邮箱 ${r.role}，无效 ${r.invalid}（发送时自动跳过），无法判定 ${r.unknown}`);
+            reload();
+          } else if (j.result && "error" in j.result) { setVerifyMsg("验证失败：" + j.result.error); }
+        }
+      }, 1500);
+    } catch (e) { setVerifying(false); setVerifyMsg("验证失败：" + String(e)); }
+  }
+
   const shown = leads;
   const pageCount = Math.max(1, Math.ceil(total / PAGE_SIZE));
   const toggle = (no: number) => setSelected((s) => { const n = new Set(s); if (n.has(no)) { n.delete(no); } else { n.add(no); } return n; });
@@ -161,8 +182,13 @@ export function App() {
                 <a className="btn btn-sm"
                   href={`/api/leads/export?fmt=xlsx${exportQuery({ country, channel, status, has, follow_up: followUp, search })}`}
                   title="按当前筛选导出 Excel">⬇ 导出 Excel</a>
+                <button className="btn btn-sm" onClick={verifyEmails} disabled={verifying}
+                  title="查 MX 记录验证邮箱有效性，无效邮箱发送时自动跳过（降 bounce 保送达）。勾选客户则只验证选中的，否则验证全部。">
+                  {verifying ? "验证中…" : selected.size > 0 ? `✓ 验证选中邮箱` : "✓ 验证全部邮箱"}
+                </button>
                 <span className="muted">共 {total} 条 · 已选 {selected.size}</span>
               </div>
+              {verifyMsg && <div className="muted" style={{ marginBottom: 8 }}>{verifyMsg}</div>}
               <LeadsTable leads={shown} selected={selected} onToggle={toggle} onToggleAll={toggleAll}
                 onReply={reply} onOpen={setDetail} sort={sort} order={order} onSort={sortBy} />
               <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 12 }}>

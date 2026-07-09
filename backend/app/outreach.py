@@ -12,6 +12,7 @@ def eligible_leads(conn, lead_nos: list[int], channel: str) -> list[dict]:
         f"""SELECT l.no, l.company_en, l.email FROM leads l
             WHERE l.no IN ({placeholders})
               AND l.email IS NOT NULL AND l.email != ''
+              AND (l.email_status IS NULL OR l.email_status != 'invalid')
               AND l.no NOT IN (
                   SELECT lead_no FROM outreach WHERE channel=? AND status IN ('messaged','replied'))
             ORDER BY l.no""",

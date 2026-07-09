@@ -70,7 +70,13 @@ export function LeadsTable({ leads, selected, onToggle, onToggleAll, onReply, on
                 <td><span className={`stage-badge stage-${l.stage || "new"}`}>{STAGE_LABEL[l.stage] ?? l.stage}</span></td>
                 <td>{l.country}</td>
                 <td>{l.city}</td>
-                <td onClick={stop}>{l.email ? <a href={`mailto:${l.email}`}>{l.email}</a> : <span className="muted">—</span>}</td>
+                <td onClick={stop}>{l.email
+                  ? <>
+                      <a href={`mailto:${l.email}`}>{l.email}</a>
+                      {l.email_status === "invalid" && <span title="邮箱无效（无 MX 记录），发送时自动跳过" style={{ color: "var(--warn)", marginLeft: 6, fontSize: 11 }}>⚠ 无效</span>}
+                      {l.email_status === "role" && <span title="角色邮箱（info@/sales@ 等），可发但优先级较低" className="muted" style={{ marginLeft: 6, fontSize: 11 }}>角色</span>}
+                    </>
+                  : <span className="muted">—</span>}</td>
                 <td className="num" onClick={stop}>{l.phone
                   ? (wa
                     ? <a href={`https://wa.me/${wa}`} target="_blank" rel="noreferrer"

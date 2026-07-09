@@ -24,6 +24,7 @@ CREATE TABLE IF NOT EXISTS leads (
     tags TEXT,
     follow_up_date TEXT,
     next_action TEXT,
+    email_status TEXT,
     created_at TEXT,
     updated_at TEXT
 );
@@ -96,6 +97,7 @@ _LEADS_COLUMNS = {
     "tags": "TEXT",
     "follow_up_date": "TEXT",
     "next_action": "TEXT",
+    "email_status": "TEXT",
 }
 
 

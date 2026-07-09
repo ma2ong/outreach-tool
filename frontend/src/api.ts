@@ -180,6 +180,21 @@ export async function sendDue(enrollment_ids: number[]): Promise<{ job_id: strin
   return r.json();
 }
 
+export async function startVerify(lead_nos?: number[]): Promise<{ job_id: string }> {
+  const r = await fetch("/api/leads/verify", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ lead_nos: lead_nos ?? null }),
+  });
+  if (!r.ok) throw new Error(`verify ${r.status}`);
+  return r.json();
+}
+
+export async function fetchVerifyJob(id: string): Promise<{ status: string; result: { checked: number; valid: number; role: number; invalid: number; unknown: number } | { error: string } | null }> {
+  const r = await fetch(`/api/leads/verify/jobs/${id}`);
+  if (!r.ok) throw new Error(`verify job ${r.status}`);
+  return r.json();
+}
+
 export async function pollReplies(): Promise<{ matched: number; newly_replied: number; lead_nos: number[] }> {
   const r = await fetch("/api/replies/poll", { method: "POST" });
   if (!r.ok) throw new Error(`poll ${r.status}`);

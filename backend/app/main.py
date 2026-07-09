@@ -14,6 +14,7 @@ from app.api import channels as channels_api
 from app.api import templates as templates_api
 from app.api import sequences as sequences_api
 from app.api import replies as replies_api
+from app.api import verify as verify_api
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -36,6 +37,7 @@ app.include_router(channels_api.router)
 app.include_router(templates_api.router)
 app.include_router(sequences_api.router)
 app.include_router(replies_api.router)
+app.include_router(verify_api.router)
 
 _DIST = os.path.join(os.path.dirname(__file__), "..", "..", "frontend", "dist")
 if os.path.isdir(_DIST):

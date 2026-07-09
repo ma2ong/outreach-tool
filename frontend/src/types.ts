@@ -26,6 +26,7 @@ export interface Lead {
   facebook: string | null;
   linkedin: string | null;
   whatsapp_verified: boolean;
+  email_status: string | null;
   business: string | null;
   stage: string;
   tags: string | null;
