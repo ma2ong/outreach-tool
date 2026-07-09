@@ -34,6 +34,13 @@ export interface Lead {
   outreach: OutreachStatus[];
   notes: Note[];
 }
+export interface Template {
+  id: number;
+  name: string;
+  channel: string;
+  subject: string | null;
+  body: string;
+}
 export const STAGES = ["new", "contacted", "replied", "negotiating", "won", "lost"] as const;
 export const STAGE_LABEL: Record<string, string> = {
   new: "新客户", contacted: "已联系", replied: "已回复",

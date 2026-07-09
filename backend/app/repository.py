@@ -1,7 +1,7 @@
 import json
 import sqlite3
 
-from app.models import Lead, Note, OutreachStatus, Stats
+from app.models import Lead, Note, OutreachStatus, Stats, Template
 
 _LEAD_RELATIONS = ("outreach", "notes")
 
@@ -160,6 +160,30 @@ def list_notes(conn, no: int) -> list[Note]:
     rows = conn.execute(
         "SELECT id, created_at, text FROM notes WHERE lead_no = ? ORDER BY id DESC", (no,))
     return [Note(id=r["id"], created_at=r["created_at"], text=r["text"]) for r in rows]
+
+
+def list_templates(conn, channel: str | None = None) -> list[Template]:
+    sql = "SELECT id, name, channel, subject, body FROM templates"
+    params: list = []
+    if channel:
+        sql += " WHERE channel = ?"
+        params.append(channel)
+    sql += " ORDER BY id"
+    return [Template(**dict(r)) for r in conn.execute(sql, params)]
+
+
+def add_template(conn, name: str, channel: str, subject: str | None, body: str) -> int:
+    cur = conn.execute(
+        "INSERT INTO templates(name, channel, subject, body) VALUES (?, ?, ?, ?)",
+        (name, channel, subject, body))
+    conn.commit()
+    return cur.lastrowid
+
+
+def delete_template(conn, tid: int) -> bool:
+    cur = conn.execute("DELETE FROM templates WHERE id = ?", (tid,))
+    conn.commit()
+    return cur.rowcount > 0
 
 
 def find_duplicate(conn, website=None, instagram=None, company_en=None) -> int | None:

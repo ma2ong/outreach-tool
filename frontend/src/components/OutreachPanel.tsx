@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
-import { startEmailSend, startChannelSend, fetchJob, fetchQuota } from "../api";
-import type { SendJob } from "../types";
+import { startEmailSend, startChannelSend, fetchJob, fetchQuota, fetchTemplates, createTemplate } from "../api";
+import type { SendJob, Template } from "../types";
 
 const DEFAULT_SUBJECT = "Recent LED Display Installations in Korea";
 const DEFAULT_BODY = `Hi {name},
@@ -30,11 +30,31 @@ export function OutreachPanel({ selected, onDone }: { selected: number[]; onDone
   const [msg, setMsg] = useState("");
   const [sending, setSending] = useState(false);
   const [quota, setQuota] = useState<Record<string, { sent_today: number; cap: number }>>({});
+  const [templates, setTemplates] = useState<Template[]>([]);
+  const [tplName, setTplName] = useState("");
 
   const isEmail = channel === "email";
   useEffect(() => {
     if (!isEmail) fetchQuota().then(setQuota).catch(() => {});
   }, [channel, sending, isEmail]);
+  useEffect(() => { fetchTemplates(channel).then(setTemplates).catch(() => {}); }, [channel]);
+
+  function applyTemplate(id: string) {
+    const t = templates.find((x) => String(x.id) === id);
+    if (!t) return;
+    if (isEmail) { if (t.subject) setSubject(t.subject); setBody(t.body); }
+    else setDm(t.body);
+  }
+
+  async function saveTemplate() {
+    const name = tplName.trim();
+    if (!name) { setMsg("请先填模板名"); return; }
+    try {
+      await createTemplate({ name, channel, subject: isEmail ? subject : null, body: isEmail ? body : dm });
+      setTplName(""); setMsg(`已保存模板「${name}」`);
+      fetchTemplates(channel).then(setTemplates).catch(() => {});
+    } catch (e) { setMsg("保存模板失败：" + String(e)); }
+  }
 
   async function send() {
     if (selected.length === 0) { setMsg("请先勾选客户"); return; }
@@ -66,6 +86,14 @@ export function OutreachPanel({ selected, onDone }: { selected: number[]; onDone
           <option value="whatsapp">WhatsApp</option>
           <option value="instagram">Instagram</option>
         </select>
+      </div>
+      <div style={{ display: "flex", gap: 8, marginBottom: 8, flexWrap: "wrap", alignItems: "center" }}>
+        <select className="input" value="" onChange={(e) => applyTemplate(e.target.value)} title="载入已存话术模板">
+          <option value="">{templates.length ? "选择模板载入…" : "（暂无模板）"}</option>
+          {templates.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+        </select>
+        <input className="input" style={{ width: 140 }} placeholder="模板名" value={tplName} onChange={(e) => setTplName(e.target.value)} />
+        <button className="btn btn-sm" onClick={saveTemplate}>另存为模板</button>
       </div>
       {isEmail ? (
         <>

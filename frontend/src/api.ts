@@ -47,6 +47,25 @@ export async function addNote(no: number, text: string): Promise<Lead> {
   return r.json();
 }
 
+export async function fetchTemplates(channel: string): Promise<import("./types").Template[]> {
+  const r = await fetch(`/api/templates?channel=${encodeURIComponent(channel)}`);
+  if (!r.ok) throw new Error(`templates ${r.status}`);
+  return r.json();
+}
+
+export async function createTemplate(t: { name: string; channel: string; subject: string | null; body: string }): Promise<import("./types").Template> {
+  const r = await fetch("/api/templates", {
+    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(t),
+  });
+  if (!r.ok) throw new Error(`template ${r.status}`);
+  return r.json();
+}
+
+export async function deleteTemplate(id: number): Promise<void> {
+  const r = await fetch(`/api/templates/${id}`, { method: "DELETE" });
+  if (!r.ok) throw new Error(`template ${r.status}`);
+}
+
 export async function markReplied(no: number, channel: string): Promise<void> {
   const r = await fetch(`/api/leads/${no}/reply`, {
     method: "POST",

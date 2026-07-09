@@ -16,6 +16,14 @@ class Note(BaseModel):
     text: str
 
 
+class Template(BaseModel):
+    id: int
+    name: str
+    channel: str
+    subject: str | None = None
+    body: str
+
+
 class Lead(BaseModel):
     no: int
     company_en: str
