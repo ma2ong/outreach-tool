@@ -7,6 +7,14 @@ export async function fetchLeads(params: Record<string, string> = {}): Promise<L
   return r.json();
 }
 
+export async function fetchLeadsPage(params: Record<string, string> = {}): Promise<{ leads: Lead[]; total: number }> {
+  const qs = new URLSearchParams(Object.entries(params).filter(([, v]) => v !== "")).toString();
+  const r = await fetch(`/api/leads${qs ? "?" + qs : ""}`);
+  if (!r.ok) throw new Error(`leads ${r.status}`);
+  const total = Number(r.headers.get("X-Total-Count") ?? "0");
+  return { leads: await r.json(), total };
+}
+
 export async function fetchStats(): Promise<Stats> {
   const r = await fetch("/api/stats");
   if (!r.ok) throw new Error(`stats ${r.status}`);

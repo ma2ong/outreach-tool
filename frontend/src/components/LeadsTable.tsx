@@ -1,4 +1,4 @@
-import type { MouseEvent } from "react";
+import type { MouseEvent, ReactNode } from "react";
 import type { Lead } from "../types";
 import { STAGE_LABEL } from "../types";
 
@@ -35,19 +35,28 @@ function channelState(l: Lead, channel: string): "replied" | "messaged" | "untou
 
 const STATE_TEXT = { replied: "已回复", messaged: "已触达", untouched: "未触达" } as const;
 
-export function LeadsTable({ leads, selected, onToggle, onToggleAll, onReply, onOpen }: {
+export function LeadsTable({ leads, selected, onToggle, onToggleAll, onReply, onOpen, sort, order, onSort }: {
   leads: Lead[]; selected: Set<number>;
   onToggle: (no: number) => void; onToggleAll: (checked: boolean) => void;
   onReply: (no: number, channel: string) => void; onOpen: (l: Lead) => void;
+  sort: string; order: string; onSort: (col: string) => void;
 }) {
   const allChecked = leads.length > 0 && leads.every((l) => selected.has(l.no));
   const stop = (e: MouseEvent) => e.stopPropagation();
+  const arrow = (col: string) => (sort === col ? (order === "asc" ? " ▲" : " ▼") : "");
+  const Sortable = ({ col, children }: { col: string; children: ReactNode }) => (
+    <th onClick={() => onSort(col)} style={{ cursor: "pointer", userSelect: "none" }} title="点击排序">
+      {children}{arrow(col)}
+    </th>
+  );
   return (
     <div className="table-wrap">
       <table className="table">
         <thead><tr>
           <th><input type="checkbox" checked={allChecked} onChange={(e) => onToggleAll(e.target.checked)} /></th>
-          <th>#</th><th>公司</th><th>阶段</th><th>国家</th><th>城市</th>
+          <Sortable col="no">#</Sortable><Sortable col="company_en">公司</Sortable>
+          <Sortable col="stage">阶段</Sortable><Sortable col="country">国家</Sortable>
+          <Sortable col="city">城市</Sortable>
           <th>邮箱</th><th>电话 / WhatsApp</th><th>IG</th><th>FB</th><th>渠道状态</th>
         </tr></thead>
         <tbody>

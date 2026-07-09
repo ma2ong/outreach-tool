@@ -40,12 +40,15 @@ class NoteRequest(BaseModel):
 
 
 @router.get("/leads", response_model=list[Lead])
-def list_leads(country: str | None = None, channel: str | None = None,
+def list_leads(response: Response, country: str | None = None, channel: str | None = None,
                status: str | None = None, search: str | None = None,
                has: str | None = None, follow_up: str | None = None,
-               conn=Depends(get_conn)):
-    return repo.list_leads(conn, country=country, channel=channel, status=status,
-                           search=search, has=has, follow_up=follow_up)
+               sort: str | None = None, order: str = "asc",
+               limit: int | None = None, offset: int = 0, conn=Depends(get_conn)):
+    filters = dict(country=country, channel=channel, status=status, search=search,
+                   has=has, follow_up=follow_up)
+    response.headers["X-Total-Count"] = str(repo.count_leads(conn, **filters))
+    return repo.list_leads(conn, **filters, sort=sort, order=order, limit=limit, offset=offset)
 
 
 @router.get("/leads/export")

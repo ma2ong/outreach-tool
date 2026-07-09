@@ -48,8 +48,10 @@ def _due_clause(days: int) -> tuple[str, list]:
     return clause, [f"-{days} days"]
 
 
-def list_leads(conn, country=None, channel=None, status=None, search=None, has=None,
-               follow_up=None, follow_up_days=7) -> list[Lead]:
+_SORT_COLS = {"no", "company_en", "country", "city", "stage"}
+
+
+def _lead_filters(country, channel, status, search, has, follow_up, follow_up_days):
     where, params = [], []
     if country:
         where.append("l.country = ?")
@@ -83,10 +85,31 @@ def list_leads(conn, country=None, channel=None, status=None, search=None, has=N
             sp.append(status)
         where.append("l.no IN (SELECT lead_no FROM outreach WHERE %s)" % " AND ".join(sub))
         params += sp
+    return where, params
+
+
+def count_leads(conn, country=None, channel=None, status=None, search=None, has=None,
+                follow_up=None, follow_up_days=7) -> int:
+    where, params = _lead_filters(country, channel, status, search, has, follow_up, follow_up_days)
+    sql = "SELECT COUNT(*) c FROM leads l"
+    if where:
+        sql += " WHERE " + " AND ".join(where)
+    return conn.execute(sql, params).fetchone()["c"]
+
+
+def list_leads(conn, country=None, channel=None, status=None, search=None, has=None,
+               follow_up=None, follow_up_days=7,
+               sort=None, order="asc", limit=None, offset=0) -> list[Lead]:
+    where, params = _lead_filters(country, channel, status, search, has, follow_up, follow_up_days)
     sql = "SELECT l.* FROM leads l"
     if where:
         sql += " WHERE " + " AND ".join(where)
-    sql += " ORDER BY l.no"
+    col = sort if sort in _SORT_COLS else "no"
+    direction = "DESC" if str(order).lower() == "desc" else "ASC"
+    sql += f" ORDER BY l.{col} {direction}, l.no {direction}"
+    if limit is not None:
+        sql += " LIMIT ? OFFSET ?"
+        params += [limit, offset]
     rows = list(conn.execute(sql, params))
     om = _outreach_for(conn, [r["no"] for r in rows])
     return [_lead_from_row(r, om.get(r["no"], [])) for r in rows]

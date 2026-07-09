@@ -71,6 +71,15 @@ def test_mark_replied_upserts_when_no_row(tmp_path):
     assert any(o["channel"] == "whatsapp" and o["status"] == "replied" for o in lead["outreach"])
 
 
+def test_list_leads_pagination_and_total(tmp_path):
+    client = _client(tmp_path)
+    r = client.get("/api/leads?limit=1&offset=0&sort=no")
+    assert r.headers["x-total-count"] == "2"
+    assert len(r.json()) == 1
+    r2 = client.get("/api/leads?sort=company_en&order=desc")
+    assert [l["company_en"] for l in r2.json()] == ["Beta", "Alpha"]
+
+
 def test_export_xlsx(tmp_path):
     r = _client(tmp_path).get("/api/leads/export?fmt=xlsx")
     assert r.status_code == 200

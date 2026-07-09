@@ -21,6 +21,29 @@ def test_list_leads_search(conn):
     assert [l.no for l in leads] == [3]
 
 
+def test_list_leads_sort_and_paginate(conn):
+    # sort by company_en asc: Alpha, Beta, Gamma
+    got = repo.list_leads(conn, sort="company_en", order="asc")
+    assert [l.company_en for l in got] == ["Alpha AV", "Beta Screens", "Gamma LED"]
+    desc = repo.list_leads(conn, sort="company_en", order="desc")
+    assert [l.company_en for l in desc] == ["Gamma LED", "Beta Screens", "Alpha AV"]
+    page = repo.list_leads(conn, sort="no", limit=1, offset=1)
+    assert [l.no for l in page] == [2]
+
+
+def test_list_leads_sort_rejects_bad_column(conn):
+    # unknown sort column falls back to 'no' (no SQL injection / error)
+    got = repo.list_leads(conn, sort="company_en; DROP TABLE leads")
+    assert [l.no for l in got] == [1, 2, 3]
+
+
+def test_count_leads_matches_filter(conn):
+    assert repo.count_leads(conn) == 3
+    assert repo.count_leads(conn, country="USA") == 2
+    # count ignores pagination
+    assert repo.count_leads(conn, country="USA") == len(repo.list_leads(conn, country="USA"))
+
+
 def test_list_leads_untouched_for_channel(conn):
     # lead2 email row is 'prospect' (never messaged), lead3 has no email row
     assert {l.no for l in repo.list_leads(conn, channel="email", status="untouched")} == {2, 3}
