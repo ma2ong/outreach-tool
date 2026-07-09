@@ -24,6 +24,36 @@ class Template(BaseModel):
     body: str
 
 
+class SequenceStep(BaseModel):
+    step_order: int
+    day_offset: int = 0
+    subject: str | None = None
+    body: str
+    image: str | None = None
+
+
+class Sequence(BaseModel):
+    id: int
+    name: str
+    channel: str
+    active: bool = True
+    steps: list[SequenceStep] = []
+    enrolled: int = 0
+
+
+class DueItem(BaseModel):
+    enrollment_id: int
+    lead_no: int
+    company_en: str
+    channel: str
+    sequence_id: int
+    sequence_name: str
+    step_order: int
+    subject: str | None = None
+    body: str
+    image: str | None = None
+
+
 class Lead(BaseModel):
     no: int
     company_en: str

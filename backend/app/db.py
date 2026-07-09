@@ -51,6 +51,32 @@ CREATE TABLE IF NOT EXISTS templates (
     subject TEXT,
     body TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS sequences (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    channel TEXT NOT NULL,
+    active INTEGER DEFAULT 1,
+    created_at TEXT
+);
+CREATE TABLE IF NOT EXISTS sequence_steps (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    sequence_id INTEGER NOT NULL,
+    step_order INTEGER NOT NULL,
+    day_offset INTEGER NOT NULL DEFAULT 0,
+    subject TEXT,
+    body TEXT NOT NULL,
+    image TEXT
+);
+CREATE TABLE IF NOT EXISTS sequence_enrollments (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    lead_no INTEGER NOT NULL,
+    sequence_id INTEGER NOT NULL,
+    current_step INTEGER DEFAULT 0,
+    status TEXT DEFAULT 'active',
+    enrolled_at TEXT,
+    next_due_date TEXT,
+    UNIQUE(lead_no, sequence_id)
+);
 """
 
 # Created after column migration so indexes on new columns (stage) don't fail on old DBs.
@@ -59,6 +85,9 @@ CREATE INDEX IF NOT EXISTS idx_leads_country ON leads(country);
 CREATE INDEX IF NOT EXISTS idx_leads_stage ON leads(stage);
 CREATE INDEX IF NOT EXISTS idx_outreach_channel ON outreach(channel, status);
 CREATE INDEX IF NOT EXISTS idx_notes_lead ON notes(lead_no);
+CREATE INDEX IF NOT EXISTS idx_seq_steps ON sequence_steps(sequence_id, step_order);
+CREATE INDEX IF NOT EXISTS idx_enroll_due ON sequence_enrollments(status, next_due_date);
+CREATE INDEX IF NOT EXISTS idx_enroll_lead ON sequence_enrollments(lead_no);
 """
 
 # Additive columns for pre-existing leads tables (DB created before CRM upgrade).

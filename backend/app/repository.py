@@ -122,6 +122,10 @@ def mark_replied(conn, no: int, channel: str) -> None:
         (no, channel),
     )
     conn.commit()
+    # A reply ends follow-up: stop any active sequence enrollments on this channel
+    # so the due queue never chases someone who already answered.
+    from app import sequences
+    sequences.stop_for_lead(conn, no, channel)
 
 
 def get_lead(conn, no: int) -> Lead | None:

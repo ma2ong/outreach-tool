@@ -1,0 +1,147 @@
+"""Follow-up sequences: multi-step outreach that generates a manual-send due queue.
+
+Design boundary: a sequence never sends by itself. `due_queue` surfaces which
+enrolled leads are due for their next touch today; the business rep reviews and
+sends through the normal rate-limited /api/send path. This keeps the anti-ban
+limits and platform-ToS boundary intact while adding follow-up structure.
+
+Enrollment drives eligibility (not the outreach 'messaged' exclusion), so step 2+
+can reach a lead that step 1 already messaged. Replies stop the enrollment.
+"""
+import datetime as _dt
+
+
+def _today() -> str:
+    return _dt.date.today().isoformat()
+
+
+def _plus_days(date_iso: str, days: int) -> str:
+    return (_dt.date.fromisoformat(date_iso) + _dt.timedelta(days=days)).isoformat()
+
+
+def create_sequence(conn, name: str, channel: str, steps: list[dict]) -> int:
+    """steps: [{day_offset, subject?, body, image?}] in send order."""
+    cur = conn.execute(
+        "INSERT INTO sequences(name, channel, active, created_at) VALUES (?, ?, 1, ?)",
+        (name, channel, _dt.datetime.now(_dt.UTC).isoformat()))
+    sid = cur.lastrowid
+    for i, s in enumerate(steps):
+        conn.execute(
+            "INSERT INTO sequence_steps(sequence_id, step_order, day_offset, subject, body, image)"
+            " VALUES (?, ?, ?, ?, ?, ?)",
+            (sid, i, int(s.get("day_offset", 0)), s.get("subject"), s["body"], s.get("image")))
+    conn.commit()
+    return sid
+
+
+def _steps(conn, sid: int) -> list[dict]:
+    return [dict(r) for r in conn.execute(
+        "SELECT step_order, day_offset, subject, body, image FROM sequence_steps"
+        " WHERE sequence_id=? ORDER BY step_order", (sid,))]
+
+
+def list_sequences(conn) -> list[dict]:
+    seqs = []
+    for r in conn.execute("SELECT id, name, channel, active FROM sequences ORDER BY id"):
+        d = dict(r)
+        d["active"] = bool(d["active"])
+        d["steps"] = _steps(conn, r["id"])
+        d["enrolled"] = conn.execute(
+            "SELECT COUNT(*) c FROM sequence_enrollments WHERE sequence_id=? AND status='active'",
+            (r["id"],)).fetchone()["c"]
+        seqs.append(d)
+    return seqs
+
+
+def get_sequence(conn, sid: int) -> dict | None:
+    r = conn.execute("SELECT id, name, channel, active FROM sequences WHERE id=?", (sid,)).fetchone()
+    if r is None:
+        return None
+    d = dict(r)
+    d["active"] = bool(d["active"])
+    d["steps"] = _steps(conn, sid)
+    d["enrolled"] = conn.execute(
+        "SELECT COUNT(*) c FROM sequence_enrollments WHERE sequence_id=? AND status='active'",
+        (sid,)).fetchone()["c"]
+    return d
+
+
+def enroll_leads(conn, sid: int, lead_nos: list[int]) -> int:
+    """Enrol leads at step 0; due today (day_offset of step 0, usually 0).
+    Skips leads that already replied on this sequence's channel, and dup enrollments."""
+    steps = _steps(conn, sid)
+    if not steps:
+        return 0
+    seq = conn.execute("SELECT channel FROM sequences WHERE id=?", (sid,)).fetchone()
+    if seq is None:
+        return 0
+    channel = seq["channel"]
+    today = _today()
+    first_due = _plus_days(today, steps[0]["day_offset"])
+    enrolled = 0
+    for no in lead_nos:
+        replied = conn.execute(
+            "SELECT 1 FROM outreach WHERE lead_no=? AND channel=? AND status='replied'",
+            (no, channel)).fetchone()
+        if replied:
+            continue
+        cur = conn.execute(
+            "INSERT OR IGNORE INTO sequence_enrollments"
+            "(lead_no, sequence_id, current_step, status, enrolled_at, next_due_date)"
+            " VALUES (?, ?, 0, 'active', ?, ?)",
+            (no, sid, today, first_due))
+        enrolled += cur.rowcount
+    conn.commit()
+    return enrolled
+
+
+def due_queue(conn, channel: str | None = None) -> list[dict]:
+    """Active enrollments whose next touch is due today and whose lead has not replied."""
+    sql = (
+        "SELECT e.id enrollment_id, e.lead_no, e.sequence_id, e.current_step,"
+        "       l.company_en, s.name sequence_name, s.channel,"
+        "       st.subject, st.body, st.image, st.step_order"
+        " FROM sequence_enrollments e"
+        " JOIN sequences s ON s.id = e.sequence_id"
+        " JOIN leads l ON l.no = e.lead_no"
+        " JOIN sequence_steps st ON st.sequence_id = e.sequence_id AND st.step_order = e.current_step"
+        " WHERE e.status='active' AND e.next_due_date <= date('now')"
+        "   AND l.no NOT IN (SELECT lead_no FROM outreach WHERE channel=s.channel AND status='replied')")
+    params: list = []
+    if channel:
+        sql += " AND s.channel = ?"
+        params.append(channel)
+    sql += " ORDER BY e.next_due_date, e.lead_no"
+    return [dict(r) for r in conn.execute(sql, params)]
+
+
+def advance_enrollment(conn, enrollment_id: int) -> None:
+    """Call after a step is sent: move to next step or complete the enrollment."""
+    e = conn.execute(
+        "SELECT sequence_id, current_step, enrolled_at FROM sequence_enrollments WHERE id=?",
+        (enrollment_id,)).fetchone()
+    if e is None:
+        return
+    nxt = conn.execute(
+        "SELECT day_offset FROM sequence_steps WHERE sequence_id=? AND step_order=?",
+        (e["sequence_id"], e["current_step"] + 1)).fetchone()
+    if nxt is None:
+        conn.execute("UPDATE sequence_enrollments SET status='completed' WHERE id=?", (enrollment_id,))
+    else:
+        due = _plus_days(e["enrolled_at"], nxt["day_offset"])
+        conn.execute(
+            "UPDATE sequence_enrollments SET current_step=current_step+1, next_due_date=? WHERE id=?",
+            (due, enrollment_id))
+    conn.commit()
+
+
+def stop_for_lead(conn, lead_no: int, channel: str | None = None) -> int:
+    """Stop active enrollments for a lead (e.g. they replied). Channel-scoped if given."""
+    sql = "UPDATE sequence_enrollments SET status='replied' WHERE lead_no=? AND status='active'"
+    params: list = [lead_no]
+    if channel:
+        sql += " AND sequence_id IN (SELECT id FROM sequences WHERE channel=?)"
+        params.append(channel)
+    cur = conn.execute(sql, params)
+    conn.commit()
+    return cur.rowcount
