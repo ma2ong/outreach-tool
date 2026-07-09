@@ -52,6 +52,44 @@ def test_get_lead_includes_outreach(conn):
     assert channels == {"email", "instagram"}
 
 
+def test_update_lead_edits_fields(conn):
+    repo.update_lead(conn, 1, {"phone": "+56 9 111", "stage": "negotiating",
+                               "tags": "hot,distributor", "email": "x@y.com"})
+    lead = repo.get_lead(conn, 1)
+    assert lead.phone == "+56 9 111"
+    assert lead.stage == "negotiating"
+    assert lead.tags == "hot,distributor"
+    assert lead.email == "x@y.com"
+
+
+def test_update_lead_ignores_unknown_and_protected_fields(conn):
+    repo.update_lead(conn, 1, {"no": 999, "bogus": "x", "stage": "won"})
+    lead = repo.get_lead(conn, 1)
+    assert lead.no == 1  # 'no' not overwritten
+    assert lead.stage == "won"
+
+
+def test_update_lead_missing_returns_false(conn):
+    assert repo.update_lead(conn, 999, {"stage": "won"}) is False
+    assert repo.update_lead(conn, 1, {"stage": "won"}) is True
+
+
+def test_notes_add_and_list(conn):
+    repo.add_note(conn, 1, "打了电话，要 P2.5 报价")
+    repo.add_note(conn, 1, "已发报价单")
+    lead = repo.get_lead(conn, 1)
+    texts = [n.text for n in lead.notes]
+    assert "打了电话，要 P2.5 报价" in texts
+    assert "已发报价单" in texts
+    assert len(lead.notes) == 2
+    # newest first
+    assert lead.notes[0].text == "已发报价单"
+
+
+def test_default_stage_is_new(conn):
+    assert repo.get_lead(conn, 2).stage == "new"
+
+
 def test_find_duplicate_by_website(conn):
     assert repo.find_duplicate(conn, website="alpha.com", instagram=None, company_en="X") == 1
     assert repo.find_duplicate(conn, website="new.com", instagram=None, company_en="New") is None

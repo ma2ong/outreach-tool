@@ -20,6 +20,10 @@ CREATE TABLE IF NOT EXISTS leads (
     target_fit TEXT,
     whatsapp_verified INTEGER DEFAULT 0,
     source_urls TEXT,
+    stage TEXT DEFAULT 'new',
+    tags TEXT,
+    follow_up_date TEXT,
+    next_action TEXT,
     created_at TEXT,
     updated_at TEXT
 );
@@ -34,9 +38,36 @@ CREATE TABLE IF NOT EXISTS outreach (
     exclude_reason TEXT,
     UNIQUE(lead_no, channel)
 );
-CREATE INDEX IF NOT EXISTS idx_leads_country ON leads(country);
-CREATE INDEX IF NOT EXISTS idx_outreach_channel ON outreach(channel, status);
+CREATE TABLE IF NOT EXISTS notes (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    lead_no INTEGER NOT NULL,
+    created_at TEXT,
+    text TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS templates (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    channel TEXT NOT NULL,
+    subject TEXT,
+    body TEXT NOT NULL
+);
 """
+
+# Created after column migration so indexes on new columns (stage) don't fail on old DBs.
+INDEXES = """
+CREATE INDEX IF NOT EXISTS idx_leads_country ON leads(country);
+CREATE INDEX IF NOT EXISTS idx_leads_stage ON leads(stage);
+CREATE INDEX IF NOT EXISTS idx_outreach_channel ON outreach(channel, status);
+CREATE INDEX IF NOT EXISTS idx_notes_lead ON notes(lead_no);
+"""
+
+# Additive columns for pre-existing leads tables (DB created before CRM upgrade).
+_LEADS_COLUMNS = {
+    "stage": "TEXT DEFAULT 'new'",
+    "tags": "TEXT",
+    "follow_up_date": "TEXT",
+    "next_action": "TEXT",
+}
 
 
 def connect(path: str) -> sqlite3.Connection:
@@ -49,6 +80,15 @@ def connect(path: str) -> sqlite3.Connection:
     return conn
 
 
+def _migrate_columns(conn: sqlite3.Connection) -> None:
+    existing = {r["name"] for r in conn.execute("PRAGMA table_info(leads)")}
+    for col, decl in _LEADS_COLUMNS.items():
+        if col not in existing:
+            conn.execute(f"ALTER TABLE leads ADD COLUMN {col} {decl}")
+
+
 def init_schema(conn: sqlite3.Connection) -> None:
     conn.executescript(SCHEMA)
+    _migrate_columns(conn)
+    conn.executescript(INDEXES)
     conn.commit()

@@ -1,16 +1,20 @@
 import json
 import sqlite3
 
-from app.models import Lead, OutreachStatus, Stats
+from app.models import Lead, Note, OutreachStatus, Stats
+
+_LEAD_RELATIONS = ("outreach", "notes")
 
 
-def _lead_from_row(row: sqlite3.Row, outreach: list[OutreachStatus]) -> Lead:
+def _lead_from_row(row: sqlite3.Row, outreach: list[OutreachStatus],
+                   notes: list[Note] | None = None) -> Lead:
     d = dict(row)
     d["whatsapp_verified"] = bool(d.get("whatsapp_verified"))
+    d["stage"] = d.get("stage") or "new"
     raw = d.get("source_urls")
     d["source_urls"] = json.loads(raw) if raw else []
-    fields = {k: d.get(k) for k in Lead.model_fields if k != "outreach"}
-    return Lead(**fields, outreach=outreach)
+    fields = {k: d.get(k) for k in Lead.model_fields if k not in _LEAD_RELATIONS}
+    return Lead(**fields, outreach=outreach, notes=notes or [])
 
 
 def _outreach_for(conn: sqlite3.Connection, lead_nos: list[int]) -> dict[int, list[OutreachStatus]]:
@@ -84,7 +88,37 @@ def get_lead(conn, no: int) -> Lead | None:
     if row is None:
         return None
     om = _outreach_for(conn, [no])
-    return _lead_from_row(row, om.get(no, []))
+    return _lead_from_row(row, om.get(no, []), list_notes(conn, no))
+
+
+_EDITABLE = {"company_en", "company_local", "country", "region", "city", "contact_name",
+             "title", "email", "phone", "website", "instagram", "facebook", "linkedin",
+             "business", "target_fit", "stage", "tags", "follow_up_date", "next_action"}
+
+
+def update_lead(conn, no: int, fields: dict) -> bool:
+    cols = {k: v for k, v in fields.items() if k in _EDITABLE}
+    if not cols:
+        return conn.execute("SELECT 1 FROM leads WHERE no = ?", (no,)).fetchone() is not None
+    sets = ", ".join(f"{k} = ?" for k in cols) + ", updated_at = ?"
+    params = [*cols.values(), _dt.datetime.now(_dt.UTC).isoformat(), no]
+    cur = conn.execute(f"UPDATE leads SET {sets} WHERE no = ?", params)
+    conn.commit()
+    return cur.rowcount > 0
+
+
+def add_note(conn, no: int, text: str) -> int:
+    now = _dt.datetime.now(_dt.UTC).isoformat()
+    cur = conn.execute("INSERT INTO notes(lead_no, created_at, text) VALUES (?, ?, ?)",
+                       (no, now, text))
+    conn.commit()
+    return cur.lastrowid
+
+
+def list_notes(conn, no: int) -> list[Note]:
+    rows = conn.execute(
+        "SELECT id, created_at, text FROM notes WHERE lead_no = ? ORDER BY id DESC", (no,))
+    return [Note(id=r["id"], created_at=r["created_at"], text=r["text"]) for r in rows]
 
 
 def find_duplicate(conn, website=None, instagram=None, company_en=None) -> int | None:

@@ -71,6 +71,33 @@ def test_mark_replied_upserts_when_no_row(tmp_path):
     assert any(o["channel"] == "whatsapp" and o["status"] == "replied" for o in lead["outreach"])
 
 
+def test_patch_lead_edits_fields(tmp_path):
+    client = _client(tmp_path)
+    r = client.patch("/api/leads/1", json={"phone": "+56 9 1", "stage": "negotiating", "tags": "hot"})
+    assert r.status_code == 200
+    body = r.json()
+    assert body["phone"] == "+56 9 1"
+    assert body["stage"] == "negotiating"
+    assert body["tags"] == "hot"
+
+
+def test_patch_lead_404(tmp_path):
+    assert _client(tmp_path).patch("/api/leads/999", json={"stage": "won"}).status_code == 404
+
+
+def test_notes_add_and_list(tmp_path):
+    client = _client(tmp_path)
+    r = client.post("/api/leads/1/notes", json={"text": "打了电话"})
+    assert r.status_code == 200
+    assert any(n["text"] == "打了电话" for n in r.json()["notes"])
+    r2 = client.get("/api/leads/1/notes")
+    assert [n["text"] for n in r2.json()] == ["打了电话"]
+
+
+def test_note_empty_rejected(tmp_path):
+    assert _client(tmp_path).post("/api/leads/1/notes", json={"text": "  "}).status_code == 400
+
+
 def test_mark_replied_bad(tmp_path):
     client = _client(tmp_path)
     assert client.post("/api/leads/999/reply", json={"channel": "email"}).status_code == 404
