@@ -41,6 +41,33 @@ export interface Template {
   subject: string | null;
   body: string;
 }
+export interface SequenceStep {
+  step_order: number;
+  day_offset: number;
+  subject: string | null;
+  body: string;
+  image: string | null;
+}
+export interface Sequence {
+  id: number;
+  name: string;
+  channel: string;
+  active: boolean;
+  steps: SequenceStep[];
+  enrolled: number;
+}
+export interface DueItem {
+  enrollment_id: number;
+  lead_no: number;
+  company_en: string;
+  channel: string;
+  sequence_id: number;
+  sequence_name: string;
+  step_order: number;
+  subject: string | null;
+  body: string;
+  image: string | null;
+}
 export const STAGES = ["new", "contacted", "replied", "negotiating", "won", "lost"] as const;
 export const STAGE_LABEL: Record<string, string> = {
   new: "新客户", contacted: "已联系", replied: "已回复",

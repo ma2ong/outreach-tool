@@ -130,6 +130,51 @@ export async function startChannelSend(channel: string, lead_nos: number[], mess
   return r.json();
 }
 
+export async function fetchSequences(): Promise<import("./types").Sequence[]> {
+  const r = await fetch("/api/sequences");
+  if (!r.ok) throw new Error(`sequences ${r.status}`);
+  return r.json();
+}
+
+export async function createSequence(s: {
+  name: string; channel: string;
+  steps: { day_offset: number; subject: string | null; body: string }[];
+}): Promise<import("./types").Sequence> {
+  const r = await fetch("/api/sequences", {
+    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(s),
+  });
+  if (!r.ok) throw new Error(`sequence ${r.status}`);
+  return r.json();
+}
+
+export async function enrollLeads(sid: number, lead_nos: number[]): Promise<{ enrolled: number; selected: number }> {
+  const r = await fetch(`/api/sequences/${sid}/enroll`, {
+    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ lead_nos }),
+  });
+  if (!r.ok) throw new Error(`enroll ${r.status}`);
+  return r.json();
+}
+
+export async function fetchDue(channel = ""): Promise<import("./types").DueItem[]> {
+  const r = await fetch(`/api/sequences/due${channel ? "?channel=" + channel : ""}`);
+  if (!r.ok) throw new Error(`due ${r.status}`);
+  return r.json();
+}
+
+export async function sendDue(enrollment_ids: number[]): Promise<{ job_id: string; will_send: number; selected: number }> {
+  const r = await fetch("/api/sequences/send", {
+    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ enrollment_ids }),
+  });
+  if (!r.ok) throw new Error(`send ${r.status}`);
+  return r.json();
+}
+
+export async function pollReplies(): Promise<{ matched: number; newly_replied: number; lead_nos: number[] }> {
+  const r = await fetch("/api/replies/poll", { method: "POST" });
+  if (!r.ok) throw new Error(`poll ${r.status}`);
+  return r.json();
+}
+
 export async function fetchChannels(): Promise<Record<string, string>> {
   const r = await fetch("/api/channels");
   if (!r.ok) throw new Error(`channels ${r.status}`);

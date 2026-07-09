@@ -1,14 +1,15 @@
 import { useEffect, useState } from "react";
-import { fetchLeadsPage, fetchStats, markReplied } from "./api";
-import type { Lead, Stats } from "./types";
+import { fetchLeadsPage, fetchStats, markReplied, fetchSequences, enrollLeads } from "./api";
+import type { Lead, Stats, Sequence } from "./types";
 import { Dashboard } from "./components/Dashboard";
 import { LeadsTable } from "./components/LeadsTable";
 import { LeadDrawer } from "./components/LeadDrawer";
 import { OutreachPanel } from "./components/OutreachPanel";
 import { DiscoveryPanel } from "./components/DiscoveryPanel";
 import { ConnectionPanel } from "./components/ConnectionPanel";
+import { SequencesPanel } from "./components/SequencesPanel";
 
-type Page = "dashboard" | "leads" | "discovery" | "channels";
+type Page = "dashboard" | "leads" | "sequences" | "discovery" | "channels";
 
 function exportQuery(params: Record<string, string>): string {
   const qs = new URLSearchParams(Object.entries(params).filter(([, v]) => v)).toString();
@@ -18,6 +19,7 @@ function exportQuery(params: Record<string, string>): string {
 const PAGES: { id: Page; label: string; ico: string }[] = [
   { id: "dashboard", label: "仪表盘", ico: "▦" },
   { id: "leads", label: "客户库", ico: "☰" },
+  { id: "sequences", label: "跟进序列", ico: "⇉" },
   { id: "discovery", label: "客户开发", ico: "⌕" },
   { id: "channels", label: "渠道连接", ico: "⇄" },
 ];
@@ -48,9 +50,20 @@ export function App() {
   const [total, setTotal] = useState(0);
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [detail, setDetail] = useState<Lead | null>(null);
+  const [sequences, setSequences] = useState<Sequence[]>([]);
+  const [enrollMsg, setEnrollMsg] = useState("");
   const [err, setErr] = useState("");
 
   const PAGE_SIZE = 50;
+
+  useEffect(() => { fetchSequences().then(setSequences).catch(() => {}); }, []);
+  async function enroll(sid: number) {
+    try {
+      const r = await enrollLeads(sid, [...selected]);
+      setEnrollMsg(`已把 ${r.enrolled} 家加入序列（${r.selected - r.enrolled} 家已在其中或已回复被跳过）`);
+      fetchSequences().then(setSequences).catch(() => {});
+    } catch (e) { setEnrollMsg("加入序列失败：" + String(e)); }
+  }
 
   function loadLeads() {
     fetchLeadsPage({ country, channel, status, search, has, follow_up: followUp,
@@ -159,11 +172,22 @@ export function App() {
               </div>
               {selected.size > 0 && (
                 <div className="action-bar">
+                  {sequences.length > 0 && (
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10, flexWrap: "wrap" }}>
+                      <span className="muted" style={{ fontSize: 13 }}>把已选 {selected.size} 家加入序列：</span>
+                      <select className="input" value="" onChange={(e) => { if (e.target.value) enroll(Number(e.target.value)); }}>
+                        <option value="">选择一个序列…</option>
+                        {sequences.map((s) => <option key={s.id} value={s.id}>{s.name}（{s.channel}）</option>)}
+                      </select>
+                      {enrollMsg && <span className="muted">{enrollMsg}</span>}
+                    </div>
+                  )}
                   <OutreachPanel selected={[...selected]} onDone={reload} />
                 </div>
               )}
             </>
           )}
+          {page === "sequences" && <SequencesPanel onChanged={reload} />}
           {page === "discovery" && <DiscoveryPanel onImported={reload} />}
           {page === "channels" && <ConnectionPanel />}
         </div>
