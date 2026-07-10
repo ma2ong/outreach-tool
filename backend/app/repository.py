@@ -192,9 +192,10 @@ def delete_template(conn, tid: int) -> bool:
 
 
 def find_duplicate(conn, website=None, instagram=None, company_en=None) -> int | None:
+    from app.dedupe import normalize_website
     checks = []
     if website:
-        checks.append(("website", website))
+        checks.append(("website", normalize_website(website)))
     if instagram:
         checks.append(("instagram", instagram))
     if company_en:
@@ -261,9 +262,11 @@ def next_no(conn) -> int:
 
 
 def insert_lead(conn, data: dict) -> int:
+    from app.dedupe import normalize_website
     no = next_no(conn)
     cols = ["no"] + _INSERT_COLS + ["created_at", "updated_at"]
     now = _dt.datetime.now(_dt.UTC).isoformat()
+    data = {**data, "website": normalize_website(data.get("website"))}
     vals = [no] + [data.get(c) for c in _INSERT_COLS] + [now, now]
     placeholders = ",".join("?" * len(cols))
     conn.execute(f"INSERT INTO leads({','.join(cols)}) VALUES ({placeholders})", vals)

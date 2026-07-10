@@ -36,7 +36,7 @@ function recommendLang(countries: string[]): string {
   return (Object.entries(n).sort((a, b) => b[1] - a[1])[0]?.[0]) || "en";
 }
 
-export function OutreachPanel({ selected, countries = [], onDone }: { selected: number[]; countries?: string[]; onDone: () => void }) {
+export function OutreachPanel({ selected, countries = [], firstCompany = "", onDone }: { selected: number[]; countries?: string[]; firstCompany?: string; onDone: () => void }) {
   const [channel, setChannel] = useState("email");
   const [subject, setSubject] = useState(DEFAULT_SUBJECT);
   const [body, setBody] = useState(DEFAULT_BODY);
@@ -130,6 +130,11 @@ export function OutreachPanel({ selected, countries = [], onDone }: { selected: 
         <>
           <input className="input" style={{ width: "100%", marginBottom: 8 }} value={subject} onChange={(e) => setSubject(e.target.value)} />
           <textarea className="input" style={{ height: 150 }} value={body} onChange={(e) => setBody(e.target.value)} />
+          {firstCompany && (
+            <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>
+              预览（发给 {firstCompany} 时）：{subject.replaceAll("{name}", firstCompany)} — {body.replaceAll("{name}", firstCompany).slice(0, 120)}…
+            </div>
+          )}
         </>
       ) : (
         <>
@@ -138,6 +143,11 @@ export function OutreachPanel({ selected, countries = [], onDone }: { selected: 
             {quota[channel] && ` 今日已发 ${quota[channel].sent_today}/${quota[channel].cap}${quota[channel].sent_today >= quota[channel].cap ? "，已到日上限，明天再发" : ""}`}
           </div>
           <textarea className="input" style={{ height: 100 }} value={dm} onChange={(e) => setDm(e.target.value)} />
+          {firstCompany && (
+            <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>
+              预览（发给 {firstCompany} 时）：{dm.replaceAll("{name}", firstCompany).slice(0, 150)}
+            </div>
+          )}
         </>
       )}
       <div style={{ marginTop: 8, display: "flex", gap: 8, flexWrap: "wrap" }}>

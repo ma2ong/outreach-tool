@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { fetchLeadsPage, fetchStats, markReplied, fetchSequences, enrollLeads, startVerify, fetchVerifyJob, startClassify, fetchClassifyJob } from "./api";
+import { fetchLeads, fetchLeadsPage, fetchStats, markReplied, fetchSequences, enrollLeads, startVerify, fetchVerifyJob, startClassify, fetchClassifyJob, fetchDuplicates, mergeDuplicates } from "./api";
 import type { Lead, Stats, Sequence } from "./types";
 import { Dashboard } from "./components/Dashboard";
 import { LeadsTable } from "./components/LeadsTable";
@@ -115,6 +115,22 @@ export function App() {
   }
 
   const [classifying, setClassifying] = useState(false);
+  const [dupPending, setDupPending] = useState<number | null>(null);
+  async function checkOrMergeDups() {
+    try {
+      if (dupPending === null) {
+        const d = await fetchDuplicates();
+        if (d.total_dups === 0) { setVerifyMsg("没有发现重复客户 ✓"); return; }
+        setDupPending(d.total_dups);
+        setVerifyMsg(`发现 ${d.groups.length} 组重复（共 ${d.total_dups} 条冗余）。合并会保留最早一条并补齐缺失字段、保住已回复状态。再点一次按钮确认合并。`);
+      } else {
+        const r = await mergeDuplicates();
+        setDupPending(null);
+        setVerifyMsg(`已合并 ${r.groups} 组，删除 ${r.removed} 条重复客户。`);
+        reload();
+      }
+    } catch (e) { setDupPending(null); setVerifyMsg("查重失败：" + String(e)); }
+  }
   async function classifyLeads() {
     setClassifying(true); setVerifyMsg("客户分级中（逐个读官网判断客户类型，较慢）…");
     try {
@@ -137,6 +153,13 @@ export function App() {
   const pageCount = Math.max(1, Math.ceil(total / PAGE_SIZE));
   const toggle = (no: number) => setSelected((s) => { const n = new Set(s); if (n.has(no)) { n.delete(no); } else { n.add(no); } return n; });
   const toggleAll = (checked: boolean) => setSelected(checked ? new Set(shown.map((l) => l.no)) : new Set());
+
+  async function selectAllFiltered() {
+    try {
+      const all = await fetchLeads({ country, channel, status, search, has, follow_up: followUp });
+      setSelected(new Set(all.map((l) => l.no)));
+    } catch (e) { setErr(String(e)); }
+  }
 
   const title = PAGES.find((p) => p.id === page)!.label;
   return (
@@ -212,7 +235,18 @@ export function App() {
                   title="读官网内容自动判断客户类型（租赁/集成商/经销商/标识厂/终端）+ 契合分，写入客户类型列。勾选客户则只分级选中的。">
                   {classifying ? "分级中…" : selected.size > 0 ? "★ 分级选中客户" : "★ 分级全部客户"}
                 </button>
+                <button className={`btn btn-sm${dupPending !== null ? " btn-primary" : ""}`} onClick={checkOrMergeDups}
+                  title="按网站/公司名找出重复客户；确认后合并（保留最早一条，补齐字段，不丢已回复状态）">
+                  {dupPending !== null ? `⚠ 确认合并 ${dupPending} 条重复` : "⧉ 查重合并"}
+                </button>
                 <span className="muted">共 {total} 条 · 已选 {selected.size}</span>
+                {total > shown.length && selected.size < total && (
+                  <button className="btn btn-sm" onClick={selectAllFiltered}
+                    title="选中当前筛选条件下的全部客户（跨页），用于批量入序列/触达">全选 {total} 条</button>
+                )}
+                {selected.size > 0 && (
+                  <button className="btn btn-sm" onClick={() => setSelected(new Set())}>清空选择</button>
+                )}
               </div>
               {verifyMsg && <div className="muted" style={{ marginBottom: 8 }}>{verifyMsg}</div>}
               <LeadsTable leads={shown} selected={selected} onToggle={toggle} onToggleAll={toggleAll}
@@ -235,7 +269,8 @@ export function App() {
                     </div>
                   )}
                   <OutreachPanel selected={[...selected]} onDone={reload}
-                    countries={[...new Set(leads.filter((l) => selected.has(l.no) && l.country).map((l) => l.country as string))]} />
+                    countries={[...new Set(leads.filter((l) => selected.has(l.no) && l.country).map((l) => l.country as string))]}
+                    firstCompany={leads.find((l) => selected.has(l.no))?.company_en ?? ""} />
                 </div>
               )}
             </>

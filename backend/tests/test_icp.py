@@ -36,6 +36,17 @@ def test_classify_unknown():
     assert r == {"icp_type": "unknown", "fit_score": 0, "hits": []}
 
 
+def test_classify_korean_signage_and_rental():
+    assert icp.classify_text("LED 전광판 제작 전문업체")["icp_type"] == "signage"
+    assert icp.classify_text("LED 스크린 렌탈 및 대여 서비스")["icp_type"] == "rental"
+
+
+def test_classify_latam_variants():
+    assert icp.classify_text("Renta de pantallas LED para eventos en México")["icp_type"] == "rental"
+    assert icp.classify_text("Arriendo de pantallas LED Santiago")["icp_type"] == "rental"
+    assert icp.classify_text("Venta de pantallas LED y publicidad exterior")["icp_type"] == "reseller"
+
+
 @pytest.fixture
 def conn(tmp_path):
     c = connect(str(tmp_path / "t.db"))

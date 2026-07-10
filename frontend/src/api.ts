@@ -226,6 +226,18 @@ export async function sendDue(enrollment_ids: number[]): Promise<{ job_id: strin
   return r.json();
 }
 
+export async function fetchDuplicates(): Promise<{ groups: { keep: number; dups: number[]; company: string; website: string | null }[]; total_dups: number }> {
+  const r = await fetch("/api/leads/duplicates");
+  if (!r.ok) throw new Error(`duplicates ${r.status}`);
+  return r.json();
+}
+
+export async function mergeDuplicates(): Promise<{ groups: number; removed: number }> {
+  const r = await fetch("/api/leads/duplicates/merge", { method: "POST" });
+  if (!r.ok) throw new Error(`merge ${r.status}`);
+  return r.json();
+}
+
 export async function startVerify(lead_nos?: number[]): Promise<{ job_id: string }> {
   const r = await fetch("/api/leads/verify", {
     method: "POST", headers: { "Content-Type": "application/json" },

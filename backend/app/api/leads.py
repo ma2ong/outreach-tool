@@ -3,7 +3,7 @@ import datetime as dt
 from fastapi import APIRouter, Depends, HTTPException, Response
 from pydantic import BaseModel
 
-from app import export, repository as repo
+from app import dedupe, export, repository as repo
 from app.main_deps import get_conn
 from app.models import Lead
 
@@ -67,6 +67,17 @@ def export_leads(country: str | None = None, channel: str | None = None,
         content=export.build_xlsx(leads),
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": f'attachment; filename="leads_{stamp}.xlsx"'})
+
+
+@router.get("/leads/duplicates")
+def list_duplicates(conn=Depends(get_conn)):
+    groups = dedupe.find_duplicate_groups(conn)
+    return {"groups": groups, "total_dups": sum(len(g["dups"]) for g in groups)}
+
+
+@router.post("/leads/duplicates/merge")
+def merge_duplicates(conn=Depends(get_conn)):
+    return dedupe.merge_all(conn)
 
 
 @router.get("/leads/{no}", response_model=Lead)

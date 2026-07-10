@@ -31,6 +31,12 @@ def test_harvest_skips_self_social_and_junk():
     assert "googleapis.com" not in doms     # junk/cdn
 
 
+def test_harvest_skips_localhost_and_ips():
+    page = "see http://localhost:8000/x and http://192.168.1.5/y and https://realco.com"
+    doms = harvest.harvest_domains("https://absen.com/where-to-buy", fetch=lambda u: page)
+    assert doms == ["realco.com"]
+
+
 def test_harvest_respects_limit():
     doms = harvest.harvest_domains("https://absen.com/where-to-buy", limit=2, fetch=_fetch)
     assert doms == ["ledprousa.com", "brightscreens.de"]

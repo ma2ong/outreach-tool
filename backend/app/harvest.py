@@ -41,6 +41,9 @@ def harvest_domains(url: str, limit: int = 40,
         host = _host(m.group(0))
         if not host or host in seen:
             continue
+        # a prospect's site has a dot and isn't localhost/an IP literal
+        if "." not in host or host.split(":")[0] == "localhost" or host.replace(".", "").replace(":", "").isdigit():
+            continue
         if host == self_host or any(s in host for s in _SKIP):
             continue
         seen.add(host)

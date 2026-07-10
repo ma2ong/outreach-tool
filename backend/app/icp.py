@@ -22,19 +22,30 @@ import re
 _CATEGORIES: dict[str, tuple[int, tuple[str, ...]]] = {
     "rental": (90, (
         "rental", "staging", "event production", "stage rental", "av rental",
-        "concert", "festival", "touring", "alquiler", "locação", "eventos",
+        "concert", "festival", "touring",
+        # es/pt: alquiler(ES) / renta(MX) / arriendo(CL) / locação(BR)
+        "alquiler", "renta de pantallas", "arriendo", "locação", "locacao", "eventos",
+        # ko: 렌탈/대여/임대 = rental/lease
+        "렌탈", "대여", "임대",
     )),
     "integrator": (85, (
         "av integrat", "system integrat", "audiovisual integrat", "integration services",
         "installation services", "audio visual solutions", "av solutions", "integrador",
+        "instalación de pantallas", "instalacion de pantallas", "instalação de painéis",
     )),
     "reseller": (80, (
         "distributor", "wholesale", "reseller", "supplier of led", "led screen supplier",
         "we supply", "dealer", "distribuidor", "mayorista", "atacado",
+        "venta de pantallas", "venda de painéis", "venda de paineis",
+        # ko: 대리점=dealer, 유통=distribution, 제조=manufacture(생산)
+        "대리점", "유통",
     )),
     "signage": (75, (
         "signage", "sign company", "sign shop", "billboard", "custom signs",
         "digital sign", "led sign", "letreros", "rotulos", "comunicação visual",
+        "publicidad exterior", "painel de led", "painéis de led",
+        # ko: 전광판 = LED sign board (the dominant Korean term)
+        "전광판", "사이니지",
     )),
     "end-user": (50, (
         "our venue", "our church", "our stadium", "our store", "retail chain",

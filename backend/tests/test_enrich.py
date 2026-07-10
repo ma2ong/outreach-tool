@@ -95,3 +95,16 @@ def test_extract_company_name_from_markdown_title():
 def test_enrich_domain_returns_company_guess():
     out = enrich.enrich_domain("acme.com", fetch=lambda url: "# Acme Displays – LED walls\ninfo@acme.com")
     assert out["company"] == "Acme Displays"
+
+
+def test_blocked_page_raises_and_enrich_survives():
+    import pytest
+    from app.jina import _BLOCK_MARKERS, BlockedPage
+    from app import enrich as enrich_mod
+
+    def blocked_fetch(url):
+        raise BlockedPage(url)
+
+    # enrich treats a blocked page like an unreachable one: empty result, no crash
+    info = enrich_mod.enrich_domain("blocked.com", fetch=blocked_fetch)
+    assert info["email"] is None and info["icp_type"] == "unknown"

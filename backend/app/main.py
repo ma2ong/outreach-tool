@@ -23,9 +23,11 @@ from app.api import products as products_api
 async def lifespan(app: FastAPI):
     # Idempotent: CREATE TABLE IF NOT EXISTS + additive column migration, so an
     # existing outreach.db picks up new tables/columns on upgrade without re-running migrate.
+    from app.dedupe import normalize_all_websites
     conn = connect(DB_PATH)
     try:
         init_schema(conn)
+        normalize_all_websites(conn)  # idempotent data fix: consistent website form
     finally:
         conn.close()
     yield
