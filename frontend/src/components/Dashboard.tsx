@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { fetchQuota } from "../api";
+import { fetchQuota, fetchCampaignStats, type CampaignStat, type CountryStat } from "../api";
 import type { Stats, ChannelReach } from "../types";
 import { StatCards } from "./StatCards";
 
@@ -24,7 +24,12 @@ function ReachRow({ channel, r }: { channel: string; r: ChannelReach }) {
 
 export function Dashboard({ stats, onGotoFollowUp }: { stats: Stats; onGotoFollowUp: () => void }) {
   const [quota, setQuota] = useState<Record<string, { sent_today: number; cap: number }>>({});
-  useEffect(() => { fetchQuota().then(setQuota).catch(() => {}); }, []);
+  const [camps, setCamps] = useState<CampaignStat[]>([]);
+  const [countryStats, setCountryStats] = useState<CountryStat[]>([]);
+  useEffect(() => {
+    fetchQuota().then(setQuota).catch(() => {});
+    fetchCampaignStats().then((r) => { setCamps(r.campaigns); setCountryStats(r.countries); }).catch(() => {});
+  }, []);
   const due = stats.funnel?.follow_up_due ?? 0;
 
   const f = stats.funnel;
@@ -93,6 +98,44 @@ export function Dashboard({ stats, onGotoFollowUp }: { stats: Stats; onGotoFollo
           条形长度 = 有该联系方式的客户数；灰色轨道剩余部分为已排除/无联系方式。「还可发」是当前该渠道能立即发送的客户数。
         </div>
       </div>
+
+      {(camps.length > 0 || countryStats.length > 0) && (
+        <div className="card" style={{ marginBottom: 16 }}>
+          <h3>回复率分析</h3>
+          {camps.length > 0 && (
+            <>
+              <div className="muted" style={{ fontSize: 12, marginBottom: 6 }}>各批发送（Campaign）效果 —— 哪个话术/批次回复率高，下次就用它</div>
+              <table className="lead-table" style={{ marginBottom: 14 }}>
+                <thead><tr><th>Campaign</th><th>渠道</th><th>触达客户</th><th>已回复</th><th>回复率</th></tr></thead>
+                <tbody>
+                  {camps.slice(0, 10).map((c) => (
+                    <tr key={c.campaign + c.channel}>
+                      <td>{c.campaign}</td>
+                      <td>{CH_LABEL[c.channel] ?? c.channel}</td>
+                      <td className="num">{c.leads}</td>
+                      <td className="num">{c.replied}</td>
+                      <td className="num" style={{ color: c.reply_rate >= 10 ? "var(--green)" : undefined }}>{c.reply_rate}%</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </>
+          )}
+          {countryStats.length > 0 && (
+            <>
+              <div className="muted" style={{ fontSize: 12, marginBottom: 6 }}>各国家回复率（触达 ≥3 家才统计）—— 回复率高的市场值得加大投入</div>
+              <div style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
+                {countryStats.slice(0, 12).map((c) => (
+                  <span key={c.country} className="muted" style={{ fontSize: 13 }}>
+                    {c.country} <b style={{ color: c.reply_rate >= 10 ? "var(--green)" : "var(--fg)" }}>{c.reply_rate}%</b>
+                    <span style={{ fontSize: 11 }}>（{c.replied}/{c.touched}）</span>
+                  </span>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
+      )}
 
       <div className="card" style={{ maxWidth: 560 }}>
         <h3>国家分布（前 15）</h3>

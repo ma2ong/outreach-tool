@@ -13,6 +13,7 @@ class TemplateCreate(BaseModel):
     channel: str
     subject: str | None = None
     body: str
+    lang: str | None = None
 
 
 @router.get("/templates", response_model=list[Template])
@@ -24,7 +25,7 @@ def list_templates(channel: str | None = None, conn=Depends(get_conn)):
 def create_template(req: TemplateCreate, conn=Depends(get_conn)):
     if not req.name.strip() or not req.body.strip():
         raise HTTPException(status_code=400, detail="name and body required")
-    tid = repo.add_template(conn, req.name.strip(), req.channel, req.subject, req.body)
+    tid = repo.add_template(conn, req.name.strip(), req.channel, req.subject, req.body, req.lang)
     return next(t for t in repo.list_templates(conn) if t.id == tid)
 
 

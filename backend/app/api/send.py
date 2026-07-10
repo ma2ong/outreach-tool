@@ -23,6 +23,7 @@ class EmailSendRequest(BaseModel):
     subject: str
     body: str
     attachment: str | None = DEFAULT_ATTACHMENT
+    campaign: str | None = None
 
 
 def _rotating_sender(conn):
@@ -45,6 +46,7 @@ def _run(job_id: str, req: EmailSendRequest):
         result = outreach.send_campaign(
             conn, req.lead_nos, req.subject, req.body, req.attachment,
             sender=sender, delay_range=DELAY_RANGE, max_send=max_send,
+            campaign=req.campaign,
             on_progress=lambda done, total: jobs.update(job_id, done))
         jobs.finish(job_id, result)
     except Exception as exc:  # noqa: BLE001
@@ -82,6 +84,7 @@ class ChannelSendRequest(BaseModel):
     lead_nos: list[int]
     message: str
     image: str | None = DEFAULT_ATTACHMENT  # 规矩：DM 必须同步发案例图
+    campaign: str | None = None
 
 
 def _run_channel(job_id: str, req: ChannelSendRequest):
@@ -89,7 +92,7 @@ def _run_channel(job_id: str, req: ChannelSendRequest):
     try:
         result = channel_outreach.send_channel_campaign(
             conn, req.lead_nos, req.channel, req.message, channels_api.ENGINE,
-            delay_range=CHANNEL_DELAY, image=req.image,
+            delay_range=CHANNEL_DELAY, image=req.image, campaign=req.campaign,
             on_progress=lambda done, total: jobs.update(job_id, done))
         jobs.finish(job_id, result)
     except Exception as exc:  # noqa: BLE001

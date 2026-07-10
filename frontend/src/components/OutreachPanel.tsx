@@ -21,7 +21,22 @@ Email: allenma2ong@gmail.com`;
 
 const DM_BODY = `Hi {name}, this is Allen from an LED display factory in Shenzhen, China. We supply P0.7–P10 indoor and outdoor LED panels at factory-direct pricing. Happy to share recent project references if you have upcoming LED display needs.`;
 
-export function OutreachPanel({ selected, onDone }: { selected: number[]; onDone: () => void }) {
+const ES_COUNTRIES = new Set(["Mexico", "Chile", "Argentina", "Colombia", "Peru", "Spain", "Ecuador",
+  "Venezuela", "Guatemala", "Bolivia", "Uruguay", "Paraguay", "Costa Rica", "Panama", "Dominican Republic"]);
+const PT_COUNTRIES = new Set(["Brazil", "Portugal"]);
+const LANG_NAME: Record<string, string> = { es: "西语", pt: "葡语", en: "英语" };
+
+function recommendLang(countries: string[]): string {
+  const n = { es: 0, pt: 0, en: 0 };
+  for (const c of countries) {
+    if (ES_COUNTRIES.has(c)) n.es++;
+    else if (PT_COUNTRIES.has(c)) n.pt++;
+    else n.en++;
+  }
+  return (Object.entries(n).sort((a, b) => b[1] - a[1])[0]?.[0]) || "en";
+}
+
+export function OutreachPanel({ selected, countries = [], onDone }: { selected: number[]; countries?: string[]; onDone: () => void }) {
   const [channel, setChannel] = useState("email");
   const [subject, setSubject] = useState(DEFAULT_SUBJECT);
   const [body, setBody] = useState(DEFAULT_BODY);
@@ -33,6 +48,11 @@ export function OutreachPanel({ selected, onDone }: { selected: number[]; onDone
   const [templates, setTemplates] = useState<Template[]>([]);
   const [tplName, setTplName] = useState("");
   const [attachment, setAttachment] = useState("");
+  const [tplLang, setTplLang] = useState("");
+  const [campaign, setCampaign] = useState("");
+  const wantLang = recommendLang(countries);
+  const sortedTemplates = [...templates].sort((a, b) =>
+    Number((b.lang || "en") === wantLang) - Number((a.lang || "en") === wantLang));
 
   const isEmail = channel === "email";
   useEffect(() => {
@@ -51,7 +71,7 @@ export function OutreachPanel({ selected, onDone }: { selected: number[]; onDone
     const name = tplName.trim();
     if (!name) { setMsg("请先填模板名"); return; }
     try {
-      await createTemplate({ name, channel, subject: isEmail ? subject : null, body: isEmail ? body : dm });
+      await createTemplate({ name, channel, subject: isEmail ? subject : null, body: isEmail ? body : dm, lang: tplLang || null });
       setTplName(""); setMsg(`已保存模板「${name}」`);
       fetchTemplates(channel).then(setTemplates).catch(() => {});
     } catch (e) { setMsg("保存模板失败：" + String(e)); }
@@ -62,9 +82,10 @@ export function OutreachPanel({ selected, onDone }: { selected: number[]; onDone
     setSending(true); setMsg(""); setJob(null);
     try {
       const att = attachment.trim() || undefined;
+      const camp = campaign.trim() || undefined;
       const start = isEmail
-        ? await startEmailSend({ lead_nos: selected, subject, body, ...(att ? { attachment: att } : {}) })
-        : await startChannelSend(channel, selected, dm, att);
+        ? await startEmailSend({ lead_nos: selected, subject, body, ...(att ? { attachment: att } : {}), ...(camp ? { campaign: camp } : {}) })
+        : await startChannelSend(channel, selected, dm, att, camp);
       const unit = isEmail ? "有邮箱" : channel === "whatsapp" ? "有电话" : "有IG";
       const willSend = (start as { will_send?: number }).will_send;
       const capNote = !isEmail && willSend !== undefined && willSend < start.eligible
@@ -90,11 +111,19 @@ export function OutreachPanel({ selected, onDone }: { selected: number[]; onDone
         </select>
       </div>
       <div style={{ display: "flex", gap: 8, marginBottom: 8, flexWrap: "wrap", alignItems: "center" }}>
-        <select className="input" value="" onChange={(e) => applyTemplate(e.target.value)} title="载入已存话术模板">
+        <select className="input" value="" onChange={(e) => applyTemplate(e.target.value)} title="载入已存话术模板；按已选客户国家推荐对应语言的模板">
           <option value="">{templates.length ? "选择模板载入…" : "（暂无模板）"}</option>
-          {templates.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+          {sortedTemplates.map((t) => (
+            <option key={t.id} value={t.id}>
+              {(t.lang || "en") === wantLang && wantLang !== "en" ? "⭐ " : ""}{t.name}{t.lang ? `（${LANG_NAME[t.lang] ?? t.lang}）` : ""}
+            </option>
+          ))}
         </select>
+        {wantLang !== "en" && <span className="muted" style={{ fontSize: 12 }}>已选客户多为{LANG_NAME[wantLang]}市场，推荐用{LANG_NAME[wantLang]}模板</span>}
         <input className="input" style={{ width: 140 }} placeholder="模板名" value={tplName} onChange={(e) => setTplName(e.target.value)} />
+        <select className="input" value={tplLang} onChange={(e) => setTplLang(e.target.value)} title="模板语言，用于按客户国家推荐">
+          <option value="">语言</option><option value="en">英语</option><option value="es">西语</option><option value="pt">葡语</option>
+        </select>
         <button className="btn btn-sm" onClick={saveTemplate}>另存为模板</button>
       </div>
       {isEmail ? (
@@ -111,9 +140,11 @@ export function OutreachPanel({ selected, onDone }: { selected: number[]; onDone
           <textarea className="input" style={{ height: 100 }} value={dm} onChange={(e) => setDm(e.target.value)} />
         </>
       )}
-      <div style={{ marginTop: 8 }}>
-        <input className="input" style={{ width: "100%" }} value={attachment} onChange={(e) => setAttachment(e.target.value)}
+      <div style={{ marginTop: 8, display: "flex", gap: 8, flexWrap: "wrap" }}>
+        <input className="input" style={{ flex: 2, minWidth: 260 }} value={attachment} onChange={(e) => setAttachment(e.target.value)}
           placeholder="附件路径（留空 = 默认案例图；可粘贴「产品报价」页生成的报价卡路径）" title="随消息发送的图片/附件文件路径" />
+        <input className="input" style={{ flex: 1, minWidth: 160 }} value={campaign} onChange={(e) => setCampaign(e.target.value)}
+          placeholder="Campaign 名（可选，用于回复率统计）" title="给这批发送起个名，仪表盘可看各批回复率；留空自动按渠道+日期" />
       </div>
       <div style={{ marginTop: 10, display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
         <button className="btn btn-green" onClick={send} disabled={sending}>

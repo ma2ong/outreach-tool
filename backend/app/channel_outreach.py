@@ -4,6 +4,8 @@ import re
 import time
 from typing import Callable
 
+from app import campaigns
+
 # per-channel: which lead column holds the contact target
 _CONTACT_COL = {"whatsapp": "phone", "instagram": "instagram"}
 # default rate limits (seconds) — browser channels must go slow to avoid bans
@@ -59,11 +61,12 @@ def _mark_messaged(conn, lead_no: int, channel: str, date: str) -> None:
 
 def send_channel_campaign(conn, lead_nos: list[int], channel: str, message: str,
                           engine, delay_range: tuple[int, int] | None = None,
-                          image: str | None = None,
+                          image: str | None = None, campaign: str | None = None,
                           on_progress: Callable[[int, int], None] | None = None) -> dict:
     if delay_range is None:
         delay_range = DEFAULT_DELAY.get(channel, (60, 90))
     today = datetime.date.today().isoformat()
+    label = campaign or campaigns.default_label(channel)
     all_targets = eligible(conn, lead_nos, channel)
     remaining_today = max(0, DAILY_CAP.get(channel, MAX_BATCH) - sent_today(conn, channel))
     targets = all_targets[:min(MAX_BATCH, remaining_today)]
@@ -75,6 +78,7 @@ def send_channel_campaign(conn, lead_nos: list[int], channel: str, message: str,
         try:
             engine.send_message(channel, _target(channel, lead), message.format(name=name), image)
             _mark_messaged(conn, lead["no"], channel, today)
+            campaigns.log_send(conn, lead["no"], channel, label)
             sent += 1
         except Exception as exc:  # noqa: BLE001
             failed += 1

@@ -234,7 +234,8 @@ export function App() {
                       {enrollMsg && <span className="muted">{enrollMsg}</span>}
                     </div>
                   )}
-                  <OutreachPanel selected={[...selected]} onDone={reload} />
+                  <OutreachPanel selected={[...selected]} onDone={reload}
+                    countries={[...new Set(leads.filter((l) => selected.has(l.no) && l.country).map((l) => l.country as string))]} />
                 </div>
               )}
             </>

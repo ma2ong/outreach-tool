@@ -3,6 +3,8 @@ import random
 import time
 from typing import Callable
 
+from app import campaigns
+
 
 def eligible_leads(conn, lead_nos: list[int], channel: str) -> list[dict]:
     if not lead_nos:
@@ -35,8 +37,10 @@ def _mark_messaged(conn, lead_no: int, date: str) -> None:
 def send_campaign(conn, lead_nos: list[int], subject: str, body: str,
                   attachment: str | None, sender: Callable[[str, str, str, str | None], None],
                   delay_range: tuple[int, int] = (16, 28), max_send: int | None = None,
+                  campaign: str | None = None,
                   on_progress: Callable[[int, int], None] | None = None) -> dict:
     today = datetime.date.today().isoformat()
+    label = campaign or campaigns.default_label("email")
     all_targets = eligible_leads(conn, lead_nos, "email")
     total_selected = len(lead_nos)
     # max_send caps a run to the sender mailboxes' remaining daily capacity (rotation).
@@ -49,6 +53,7 @@ def send_campaign(conn, lead_nos: list[int], subject: str, body: str,
         try:
             sender(lead["email"], subject.format(name=name), body.format(name=name), attachment)
             _mark_messaged(conn, lead["no"], today)
+            campaigns.log_send(conn, lead["no"], "email", label)
             sent += 1
         except Exception as exc:  # noqa: BLE001
             failed += 1

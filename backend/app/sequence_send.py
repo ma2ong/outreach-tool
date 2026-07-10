@@ -10,6 +10,7 @@ import datetime
 import random
 import time
 
+from app import campaigns
 from app import channel_outreach as co
 from app import outreach as email_outreach
 from app import sequences
@@ -62,6 +63,7 @@ def send_due(conn, enrollment_ids, *, sender=None, engine=None,
                 co._mark_messaged(conn, no, ch, today)
                 remaining[ch] -= 1
                 batch_used[ch] += 1
+            campaigns.log_send(conn, no, ch, f"序列:{d['sequence_name']}")
             sequences.advance_enrollment(conn, d["enrollment_id"])
             sent += 1
         except Exception as exc:  # noqa: BLE001

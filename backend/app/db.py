@@ -103,6 +103,13 @@ CREATE TABLE IF NOT EXISTS products (
     use_case TEXT,
     ref_price_sqm TEXT
 );
+CREATE TABLE IF NOT EXISTS send_log (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    lead_no INTEGER NOT NULL,
+    channel TEXT NOT NULL,
+    campaign TEXT NOT NULL,
+    sent_at TEXT
+);
 """
 
 # Created after column migration so indexes on new columns (stage) don't fail on old DBs.
@@ -114,15 +121,21 @@ CREATE INDEX IF NOT EXISTS idx_notes_lead ON notes(lead_no);
 CREATE INDEX IF NOT EXISTS idx_seq_steps ON sequence_steps(sequence_id, step_order);
 CREATE INDEX IF NOT EXISTS idx_enroll_due ON sequence_enrollments(status, next_due_date);
 CREATE INDEX IF NOT EXISTS idx_enroll_lead ON sequence_enrollments(lead_no);
+CREATE INDEX IF NOT EXISTS idx_send_log_campaign ON send_log(campaign, channel);
 """
 
-# Additive columns for pre-existing leads tables (DB created before CRM upgrade).
-_LEADS_COLUMNS = {
-    "stage": "TEXT DEFAULT 'new'",
-    "tags": "TEXT",
-    "follow_up_date": "TEXT",
-    "next_action": "TEXT",
-    "email_status": "TEXT",
+# Additive columns for pre-existing tables (DB created before later upgrades).
+_TABLE_COLUMNS = {
+    "leads": {
+        "stage": "TEXT DEFAULT 'new'",
+        "tags": "TEXT",
+        "follow_up_date": "TEXT",
+        "next_action": "TEXT",
+        "email_status": "TEXT",
+    },
+    "templates": {
+        "lang": "TEXT",
+    },
 }
 
 
@@ -137,10 +150,11 @@ def connect(path: str) -> sqlite3.Connection:
 
 
 def _migrate_columns(conn: sqlite3.Connection) -> None:
-    existing = {r["name"] for r in conn.execute("PRAGMA table_info(leads)")}
-    for col, decl in _LEADS_COLUMNS.items():
-        if col not in existing:
-            conn.execute(f"ALTER TABLE leads ADD COLUMN {col} {decl}")
+    for table, cols in _TABLE_COLUMNS.items():
+        existing = {r["name"] for r in conn.execute(f"PRAGMA table_info({table})")}
+        for col, decl in cols.items():
+            if col not in existing:
+                conn.execute(f"ALTER TABLE {table} ADD COLUMN {col} {decl}")
 
 
 def init_schema(conn: sqlite3.Connection) -> None:

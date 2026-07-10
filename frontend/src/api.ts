@@ -21,6 +21,15 @@ export async function fetchStats(): Promise<Stats> {
   return r.json();
 }
 
+export interface CampaignStat { campaign: string; channel: string; sent: number; leads: number; replied: number; reply_rate: number; last_sent: string | null }
+export interface CountryStat { country: string; touched: number; replied: number; reply_rate: number }
+
+export async function fetchCampaignStats(): Promise<{ campaigns: CampaignStat[]; countries: CountryStat[] }> {
+  const r = await fetch("/api/stats/campaigns");
+  if (!r.ok) throw new Error(`campaign stats ${r.status}`);
+  return r.json();
+}
+
 export async function fetchQuota(): Promise<Record<string, { sent_today: number; cap: number }>> {
   const r = await fetch("/api/send/quota");
   if (!r.ok) throw new Error(`quota ${r.status}`);
@@ -53,7 +62,7 @@ export async function fetchTemplates(channel: string): Promise<import("./types")
   return r.json();
 }
 
-export async function createTemplate(t: { name: string; channel: string; subject: string | null; body: string }): Promise<import("./types").Template> {
+export async function createTemplate(t: { name: string; channel: string; subject: string | null; body: string; lang?: string | null }): Promise<import("./types").Template> {
   const r = await fetch("/api/templates", {
     method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(t),
   });
@@ -109,7 +118,7 @@ export async function generateQuote(product_ids: number[], note: string): Promis
   return r.json();
 }
 
-export async function startEmailSend(body: { lead_nos: number[]; subject: string; body: string; attachment?: string }): Promise<{ job_id: string; eligible: number; selected: number }> {
+export async function startEmailSend(body: { lead_nos: number[]; subject: string; body: string; attachment?: string; campaign?: string }): Promise<{ job_id: string; eligible: number; selected: number }> {
   const r = await fetch("/api/send/email", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -165,11 +174,14 @@ export async function importLeads(country: string, candidates: {
   return r.json();
 }
 
-export async function startChannelSend(channel: string, lead_nos: number[], message: string, image?: string): Promise<{ job_id: string; eligible: number; selected: number; will_send: number }> {
+export async function startChannelSend(channel: string, lead_nos: number[], message: string, image?: string, campaign?: string): Promise<{ job_id: string; eligible: number; selected: number; will_send: number }> {
+  const body: Record<string, unknown> = { channel, lead_nos, message };
+  if (image) body.image = image;
+  if (campaign) body.campaign = campaign;
   const r = await fetch("/api/send/channel", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(image ? { channel, lead_nos, message, image } : { channel, lead_nos, message }),
+    body: JSON.stringify(body),
   });
   if (!r.ok) throw new Error(`send ${r.status}`);
   return r.json();

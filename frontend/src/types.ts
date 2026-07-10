@@ -42,6 +42,7 @@ export interface Template {
   channel: string;
   subject: string | null;
   body: string;
+  lang: string | null;
 }
 export interface SequenceStep {
   step_order: number;

@@ -22,6 +22,7 @@ class Template(BaseModel):
     channel: str
     subject: str | None = None
     body: str
+    lang: str | None = None
 
 
 class SequenceStep(BaseModel):

@@ -167,7 +167,7 @@ def list_notes(conn, no: int) -> list[Note]:
 
 
 def list_templates(conn, channel: str | None = None) -> list[Template]:
-    sql = "SELECT id, name, channel, subject, body FROM templates"
+    sql = "SELECT id, name, channel, subject, body, lang FROM templates"
     params: list = []
     if channel:
         sql += " WHERE channel = ?"
@@ -176,10 +176,11 @@ def list_templates(conn, channel: str | None = None) -> list[Template]:
     return [Template(**dict(r)) for r in conn.execute(sql, params)]
 
 
-def add_template(conn, name: str, channel: str, subject: str | None, body: str) -> int:
+def add_template(conn, name: str, channel: str, subject: str | None, body: str,
+                 lang: str | None = None) -> int:
     cur = conn.execute(
-        "INSERT INTO templates(name, channel, subject, body) VALUES (?, ?, ?, ?)",
-        (name, channel, subject, body))
+        "INSERT INTO templates(name, channel, subject, body, lang) VALUES (?, ?, ?, ?, ?)",
+        (name, channel, subject, body, lang))
     conn.commit()
     return cur.lastrowid
 
