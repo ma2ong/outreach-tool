@@ -8,9 +8,10 @@ import { OutreachPanel } from "./components/OutreachPanel";
 import { DiscoveryPanel } from "./components/DiscoveryPanel";
 import { ConnectionPanel } from "./components/ConnectionPanel";
 import { MailboxPanel } from "./components/MailboxPanel";
+import { ProductsPanel } from "./components/ProductsPanel";
 import { SequencesPanel } from "./components/SequencesPanel";
 
-type Page = "dashboard" | "leads" | "sequences" | "discovery" | "channels";
+type Page = "dashboard" | "leads" | "sequences" | "discovery" | "products" | "channels";
 
 function exportQuery(params: Record<string, string>): string {
   const qs = new URLSearchParams(Object.entries(params).filter(([, v]) => v)).toString();
@@ -22,6 +23,7 @@ const PAGES: { id: Page; label: string; ico: string }[] = [
   { id: "leads", label: "客户库", ico: "☰" },
   { id: "sequences", label: "跟进序列", ico: "⇉" },
   { id: "discovery", label: "客户开发", ico: "⌕" },
+  { id: "products", label: "产品报价", ico: "▤" },
   { id: "channels", label: "渠道连接", ico: "⇄" },
 ];
 
@@ -239,6 +241,7 @@ export function App() {
           )}
           {page === "sequences" && <SequencesPanel onChanged={reload} />}
           {page === "discovery" && <DiscoveryPanel onImported={reload} />}
+          {page === "products" && <ProductsPanel />}
           {page === "channels" && <><ConnectionPanel /><MailboxPanel /></>}
         </div>
       </div>

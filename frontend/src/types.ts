@@ -75,6 +75,14 @@ export const STAGE_LABEL: Record<string, string> = {
   new: "新客户", contacted: "已联系", replied: "已回复",
   negotiating: "洽谈中", won: "成交", lost: "无效",
 };
+export interface Product {
+  id: number;
+  model: string;
+  pixel_pitch: string | null;
+  brightness: string | null;
+  use_case: string | null;
+  ref_price_sqm: string | null;
+}
 export interface Mailbox {
   id: number;
   email: string;

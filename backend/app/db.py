@@ -95,6 +95,14 @@ CREATE TABLE IF NOT EXISTS mailbox_sends (
     count INTEGER DEFAULT 0,
     PRIMARY KEY (mailbox_id, date)
 );
+CREATE TABLE IF NOT EXISTS products (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    model TEXT NOT NULL,
+    pixel_pitch TEXT,
+    brightness TEXT,
+    use_case TEXT,
+    ref_price_sqm TEXT
+);
 """
 
 # Created after column migration so indexes on new columns (stage) don't fail on old DBs.

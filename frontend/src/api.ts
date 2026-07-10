@@ -75,7 +75,41 @@ export async function markReplied(no: number, channel: string): Promise<void> {
   if (!r.ok) throw new Error(`reply ${r.status}`);
 }
 
-export async function startEmailSend(body: { lead_nos: number[]; subject: string; body: string }): Promise<{ job_id: string; eligible: number; selected: number }> {
+export async function fetchProducts(): Promise<import("./types").Product[]> {
+  const r = await fetch("/api/products");
+  if (!r.ok) throw new Error(`products ${r.status}`);
+  return r.json();
+}
+
+export async function createProduct(p: { model: string; pixel_pitch: string | null; brightness: string | null; use_case: string | null; ref_price_sqm: string | null }): Promise<import("./types").Product> {
+  const r = await fetch("/api/products", {
+    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(p),
+  });
+  if (!r.ok) throw new Error(`product ${r.status}`);
+  return r.json();
+}
+
+export async function deleteProduct(id: number): Promise<void> {
+  const r = await fetch(`/api/products/${id}`, { method: "DELETE" });
+  if (!r.ok) throw new Error(`product ${r.status}`);
+}
+
+export async function seedProducts(): Promise<{ seeded: number }> {
+  const r = await fetch("/api/products/seed", { method: "POST" });
+  if (!r.ok) throw new Error(`seed ${r.status}`);
+  return r.json();
+}
+
+export async function generateQuote(product_ids: number[], note: string): Promise<{ file: string; path: string }> {
+  const r = await fetch("/api/quote", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ product_ids, note }),
+  });
+  if (!r.ok) throw new Error(`quote ${r.status}`);
+  return r.json();
+}
+
+export async function startEmailSend(body: { lead_nos: number[]; subject: string; body: string; attachment?: string }): Promise<{ job_id: string; eligible: number; selected: number }> {
   const r = await fetch("/api/send/email", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -131,11 +165,11 @@ export async function importLeads(country: string, candidates: {
   return r.json();
 }
 
-export async function startChannelSend(channel: string, lead_nos: number[], message: string): Promise<{ job_id: string; eligible: number; selected: number; will_send: number }> {
+export async function startChannelSend(channel: string, lead_nos: number[], message: string, image?: string): Promise<{ job_id: string; eligible: number; selected: number; will_send: number }> {
   const r = await fetch("/api/send/channel", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ channel, lead_nos, message }),
+    body: JSON.stringify(image ? { channel, lead_nos, message, image } : { channel, lead_nos, message }),
   });
   if (!r.ok) throw new Error(`send ${r.status}`);
   return r.json();

@@ -17,6 +17,7 @@ from app.api import replies as replies_api
 from app.api import verify as verify_api
 from app.api import mailboxes as mailboxes_api
 from app.api import classify as classify_api
+from app.api import products as products_api
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -42,6 +43,7 @@ app.include_router(replies_api.router)
 app.include_router(verify_api.router)
 app.include_router(mailboxes_api.router)
 app.include_router(classify_api.router)
+app.include_router(products_api.router)
 
 _DIST = os.path.join(os.path.dirname(__file__), "..", "..", "frontend", "dist")
 if os.path.isdir(_DIST):

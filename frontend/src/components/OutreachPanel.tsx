@@ -32,6 +32,7 @@ export function OutreachPanel({ selected, onDone }: { selected: number[]; onDone
   const [quota, setQuota] = useState<Record<string, { sent_today: number; cap: number }>>({});
   const [templates, setTemplates] = useState<Template[]>([]);
   const [tplName, setTplName] = useState("");
+  const [attachment, setAttachment] = useState("");
 
   const isEmail = channel === "email";
   useEffect(() => {
@@ -60,9 +61,10 @@ export function OutreachPanel({ selected, onDone }: { selected: number[]; onDone
     if (selected.length === 0) { setMsg("请先勾选客户"); return; }
     setSending(true); setMsg(""); setJob(null);
     try {
+      const att = attachment.trim() || undefined;
       const start = isEmail
-        ? await startEmailSend({ lead_nos: selected, subject, body })
-        : await startChannelSend(channel, selected, dm);
+        ? await startEmailSend({ lead_nos: selected, subject, body, ...(att ? { attachment: att } : {}) })
+        : await startChannelSend(channel, selected, dm, att);
       const unit = isEmail ? "有邮箱" : channel === "whatsapp" ? "有电话" : "有IG";
       const willSend = (start as { will_send?: number }).will_send;
       const capNote = !isEmail && willSend !== undefined && willSend < start.eligible
@@ -109,6 +111,10 @@ export function OutreachPanel({ selected, onDone }: { selected: number[]; onDone
           <textarea className="input" style={{ height: 100 }} value={dm} onChange={(e) => setDm(e.target.value)} />
         </>
       )}
+      <div style={{ marginTop: 8 }}>
+        <input className="input" style={{ width: "100%" }} value={attachment} onChange={(e) => setAttachment(e.target.value)}
+          placeholder="附件路径（留空 = 默认案例图；可粘贴「产品报价」页生成的报价卡路径）" title="随消息发送的图片/附件文件路径" />
+      </div>
       <div style={{ marginTop: 10, display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
         <button className="btn btn-green" onClick={send} disabled={sending}>
           {sending ? "发送中…" : isEmail ? "发送邮件" : `发送 ${channel === "whatsapp" ? "WhatsApp" : "Instagram"} 私信`}
