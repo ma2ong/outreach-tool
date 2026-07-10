@@ -28,6 +28,7 @@ export interface Lead {
   whatsapp_verified: boolean;
   email_status: string | null;
   business: string | null;
+  target_fit: string | null;
   stage: string;
   tags: string | null;
   follow_up_date: string | null;
@@ -117,6 +118,8 @@ export interface Candidate {
   facebook: string | null;
   linkedin: string | null;
   source?: string | null;
+  icp_type?: string | null;
+  fit_score?: number | null;
   duplicate_of: number | null;
 }
 export interface DiscoverJob {

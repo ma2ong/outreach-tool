@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { fetchLeadsPage, fetchStats, markReplied, fetchSequences, enrollLeads, startVerify, fetchVerifyJob } from "./api";
+import { fetchLeadsPage, fetchStats, markReplied, fetchSequences, enrollLeads, startVerify, fetchVerifyJob, startClassify, fetchClassifyJob } from "./api";
 import type { Lead, Stats, Sequence } from "./types";
 import { Dashboard } from "./components/Dashboard";
 import { LeadsTable } from "./components/LeadsTable";
@@ -112,6 +112,25 @@ export function App() {
     } catch (e) { setVerifying(false); setVerifyMsg("验证失败：" + String(e)); }
   }
 
+  const [classifying, setClassifying] = useState(false);
+  async function classifyLeads() {
+    setClassifying(true); setVerifyMsg("客户分级中（逐个读官网判断客户类型，较慢）…");
+    try {
+      const scope = selected.size > 0 ? [...selected] : undefined;
+      const { job_id } = await startClassify(scope);
+      const poll = setInterval(async () => {
+        const j = await fetchClassifyJob(job_id);
+        if (j.status === "running") { setVerifyMsg(`客户分级中 ${j.done}${j.total ? "/" + j.total : ""}…`); return; }
+        clearInterval(poll); setClassifying(false);
+        if (j.result && "checked" in j.result) {
+          const types = Object.entries(j.result.by_type).map(([t, n]) => `${t} ${n}`).join("，");
+          setVerifyMsg(`已分级 ${j.result.checked} 家：${types || "未识别出类型"}。按"客户类型"列排序可优先打高价值客户。`);
+          reload();
+        } else if (j.result && "error" in j.result) { setVerifyMsg("分级失败：" + j.result.error); }
+      }, 2000);
+    } catch (e) { setClassifying(false); setVerifyMsg("分级失败：" + String(e)); }
+  }
+
   const shown = leads;
   const pageCount = Math.max(1, Math.ceil(total / PAGE_SIZE));
   const toggle = (no: number) => setSelected((s) => { const n = new Set(s); if (n.has(no)) { n.delete(no); } else { n.add(no); } return n; });
@@ -186,6 +205,10 @@ export function App() {
                 <button className="btn btn-sm" onClick={verifyEmails} disabled={verifying}
                   title="查 MX 记录验证邮箱有效性，无效邮箱发送时自动跳过（降 bounce 保送达）。勾选客户则只验证选中的，否则验证全部。">
                   {verifying ? "验证中…" : selected.size > 0 ? `✓ 验证选中邮箱` : "✓ 验证全部邮箱"}
+                </button>
+                <button className="btn btn-sm" onClick={classifyLeads} disabled={classifying}
+                  title="读官网内容自动判断客户类型（租赁/集成商/经销商/标识厂/终端）+ 契合分，写入客户类型列。勾选客户则只分级选中的。">
+                  {classifying ? "分级中…" : selected.size > 0 ? "★ 分级选中客户" : "★ 分级全部客户"}
                 </button>
                 <span className="muted">共 {total} 条 · 已选 {selected.size}</span>
               </div>

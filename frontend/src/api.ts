@@ -195,6 +195,21 @@ export async function fetchVerifyJob(id: string): Promise<{ status: string; resu
   return r.json();
 }
 
+export async function startClassify(lead_nos?: number[]): Promise<{ job_id: string }> {
+  const r = await fetch("/api/leads/classify", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ lead_nos: lead_nos ?? null }),
+  });
+  if (!r.ok) throw new Error(`classify ${r.status}`);
+  return r.json();
+}
+
+export async function fetchClassifyJob(id: string): Promise<{ status: string; done: number; total: number; result: { checked: number; by_type: Record<string, number> } | { error: string } | null }> {
+  const r = await fetch(`/api/leads/classify/jobs/${id}`);
+  if (!r.ok) throw new Error(`classify job ${r.status}`);
+  return r.json();
+}
+
 export async function pollReplies(): Promise<{ matched: number; newly_replied: number; lead_nos: number[] }> {
   const r = await fetch("/api/replies/poll", { method: "POST" });
   if (!r.ok) throw new Error(`poll ${r.status}`);

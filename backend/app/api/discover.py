@@ -33,6 +33,8 @@ class Candidate(BaseModel):
     facebook: str | None = None
     linkedin: str | None = None
     source: str | None = None
+    icp_type: str | None = None
+    fit_score: int | None = None
 
 
 class ImportRequest(BaseModel):
@@ -92,14 +94,20 @@ def discover_job(job_id: str):
 
 @router.post("/leads/import")
 def import_leads(req: ImportRequest, conn=Depends(get_conn)):
+    from app import icp as icp_mod
     imported = 0
     for c in req.candidates:
         if c.website and repository.find_duplicate(conn, website=c.website, instagram=c.instagram, company_en=c.company_en):
             continue
-        repository.insert_lead(conn, {
+        fit = "discovered"
+        if c.icp_type and c.icp_type != "unknown":
+            fit = f"{icp_mod.label(c.icp_type)} ({c.fit_score or 0})"
+        no = repository.insert_lead(conn, {
             "company_en": c.company_en, "country": req.country, "city": c.city,
             "website": c.website, "email": c.email, "phone": c.phone,
             "instagram": c.instagram, "facebook": c.facebook, "linkedin": c.linkedin,
-            "target_fit": "discovered"})
+            "target_fit": fit})
+        if c.icp_type and c.icp_type != "unknown":
+            icp_mod.apply_to_lead(conn, no, {"icp_type": c.icp_type, "fit_score": c.fit_score or 0})
         imported += 1
     return {"imported": imported}

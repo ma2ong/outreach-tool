@@ -2,6 +2,11 @@ import { useState } from "react";
 import { startDiscover, startPageDiscover, fetchDiscoverJob, importLeads } from "../api";
 import type { Candidate } from "../types";
 
+const ICP_LABEL: Record<string, string> = {
+  rental: "租赁公司", integrator: "AV集成商", reseller: "经销商",
+  signage: "标识/广告牌", "end-user": "终端用户",
+};
+
 export function DiscoveryPanel({ onImported }: { onImported: () => void }) {
   const [mode, setMode] = useState<"search" | "page">("search");
   const [query, setQuery] = useState("LED video wall installer AV integrator USA contact");
@@ -41,7 +46,7 @@ export function DiscoveryPanel({ onImported }: { onImported: () => void }) {
     const res = await importLeads(country, chosen.map((c) => ({
       company_en: c.title, website: c.domain, email: c.email,
       phone: c.phone, instagram: c.instagram, facebook: c.facebook, linkedin: c.linkedin,
-      source: c.source,
+      source: c.source, icp_type: c.icp_type, fit_score: c.fit_score,
     })));
     setMsg(`已导入 ${res.imported} 家`); onImported();
   }
@@ -82,13 +87,16 @@ export function DiscoveryPanel({ onImported }: { onImported: () => void }) {
           <div className="table-wrap">
             <table className="table">
               <thead><tr>
-                <th></th><th>网站</th><th>邮箱</th><th>电话 / WhatsApp</th><th>IG</th><th>FB</th><th>状态</th>
+                <th></th><th>网站</th><th>类型</th><th>邮箱</th><th>电话 / WhatsApp</th><th>IG</th><th>FB</th><th>状态</th>
               </tr></thead>
               <tbody>
                 {cands.map((c) => (
                   <tr key={c.domain}>
                     <td><input type="checkbox" disabled={!!c.duplicate_of} checked={picked.has(c.domain)} onChange={() => toggle(c.domain)} /></td>
                     <td><a href={`https://${c.domain}`} target="_blank" rel="noreferrer">{c.domain}</a></td>
+                    <td>{c.icp_type && c.icp_type !== "unknown"
+                      ? <span title={`契合分 ${c.fit_score}`}>{ICP_LABEL[c.icp_type] ?? c.icp_type} <span className="muted">{c.fit_score}</span></span>
+                      : dash}</td>
                     <td>{c.email || dash}</td>
                     <td className="num">{c.phone
                       ? <a href={`https://wa.me/${c.phone.replace(/\D/g, "")}`} target="_blank" rel="noreferrer" style={{ color: "var(--green)" }}>{c.phone}</a>

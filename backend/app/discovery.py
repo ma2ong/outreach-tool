@@ -23,6 +23,8 @@ def _enrich_candidates(conn, domains: list[dict], enrich_fn: Callable,
             "instagram": info.get("instagram"),
             "facebook": info.get("facebook"),
             "linkedin": info.get("linkedin"),
+            "icp_type": info.get("icp_type", "unknown"),
+            "fit_score": info.get("fit_score", 0),
             "source": source,
             "duplicate_of": dup,
         })

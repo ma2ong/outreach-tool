@@ -48,7 +48,7 @@ def _due_clause(days: int) -> tuple[str, list]:
     return clause, [f"-{days} days"]
 
 
-_SORT_COLS = {"no", "company_en", "country", "city", "stage"}
+_SORT_COLS = {"no", "company_en", "country", "city", "stage", "target_fit"}
 
 
 def _lead_filters(country, channel, status, search, has, follow_up, follow_up_days):

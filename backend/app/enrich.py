@@ -1,6 +1,7 @@
 import re
 from typing import Callable
 
+from app.icp import classify_text
 from app.jina import fetch as jina_fetch
 
 _EMAIL = re.compile(r'[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}', re.I)
@@ -91,11 +92,13 @@ def enrich_domain(domain: str, fetch: Callable[[str], str] = jina_fetch) -> dict
     phones: list[str] = []
     socials = {"instagram": None, "facebook": None, "linkedin": None}
     company = None
+    all_text: list[str] = []
     for path in ("/contact", "/contact-us", ""):
         try:
             text = fetch(f"https://{domain}{path}")
         except Exception:  # noqa: BLE001
             continue
+        all_text.append(text)
         if company is None:
             company = extract_company_name(text)
         for e in extract_emails(text):
@@ -109,6 +112,7 @@ def enrich_domain(domain: str, fetch: Callable[[str], str] = jina_fetch) -> dict
                 socials[k] = v
         if emails and phones and all(socials.values()):
             break
+    icp = classify_text("\n".join(all_text))
     best = None
     for e in emails:
         if any(e.lower().startswith(p) for p in _PREFER):
@@ -117,4 +121,5 @@ def enrich_domain(domain: str, fetch: Callable[[str], str] = jina_fetch) -> dict
     if best is None and emails:
         best = emails[0]
     return {"domain": domain, "emails": emails, "email": best, "company": company,
-            "phone": phones[0] if phones else None, "phones": phones, **socials}
+            "phone": phones[0] if phones else None, "phones": phones,
+            "icp_type": icp["icp_type"], "fit_score": icp["fit_score"], **socials}
