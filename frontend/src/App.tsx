@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { fetchLead, fetchLeads, fetchLeadsPage, fetchStats, markReplied, fetchSequences, enrollLeads, startVerify, fetchVerifyJob, startClassify, fetchClassifyJob, fetchDuplicates, mergeDuplicates, fetchInboxUnread } from "./api";
+import { fetchLead, fetchLeads, fetchLeadsPage, fetchStats, markReplied, fetchSequences, enrollLeads, startVerify, fetchVerifyJob, startClassify, fetchClassifyJob, fetchDuplicates, mergeDuplicates, fetchInboxUnread, quickAddLead } from "./api";
 import type { Lead, Stats, Sequence } from "./types";
 import { Dashboard } from "./components/Dashboard";
 import { LeadsTable } from "./components/LeadsTable";
@@ -65,6 +65,31 @@ export function App() {
 
   async function openLead(no: number) {
     try { setDetail(await fetchLead(no)); } catch (e) { setErr(String(e)); }
+  }
+
+  const [quickOpen, setQuickOpen] = useState(false);
+  const [quickUrl, setQuickUrl] = useState("");
+  const [quickCountry, setQuickCountry] = useState("");
+  const [quickName, setQuickName] = useState("");
+  const [quickBusy, setQuickBusy] = useState(false);
+  const [quickMsg, setQuickMsg] = useState("");
+  async function quickAdd() {
+    if (!quickUrl.trim()) { setQuickMsg("请粘贴客户主页或官网链接"); return; }
+    setQuickBusy(true); setQuickMsg("添加中…官网链接会自动深挖联系方式（十几秒）");
+    try {
+      const r = await quickAddLead({ url: quickUrl.trim(),
+        ...(quickCountry.trim() ? { country: quickCountry.trim() } : {}),
+        ...(quickName.trim() ? { company_en: quickName.trim() } : {}) });
+      if (r.duplicate_of) {
+        setQuickMsg(`这家已在库（#${r.duplicate_of}），已打开详情`);
+      } else {
+        setQuickMsg(`已添加 #${r.lead.no} ${r.lead.company_en}，已打开详情可补充信息`);
+        setQuickUrl(""); setQuickName("");
+        reload();
+      }
+      setDetail(r.lead);
+    } catch (e) { setQuickMsg("添加失败：" + String(e)); }
+    finally { setQuickBusy(false); }
   }
 
   const PAGE_SIZE = 50;
@@ -250,6 +275,10 @@ export function App() {
                   title="按网站/公司名找出重复客户；确认后合并（保留最早一条，补齐字段，不丢已回复状态）">
                   {dupPending !== null ? `⚠ 确认合并 ${dupPending} 条重复` : "⧉ 查重合并"}
                 </button>
+                <button className={`btn btn-sm${quickOpen ? " btn-primary" : ""}`} onClick={() => setQuickOpen(!quickOpen)}
+                  title="在 IG/FB/LinkedIn/官网看到客户，粘贴链接一键入库；官网会自动深挖邮箱/电话/社媒/分级">
+                  ＋ 快速添加
+                </button>
                 <span className="muted">共 {total} 条 · 已选 {selected.size}</span>
                 {total > shown.length && selected.size < total && (
                   <button className="btn btn-sm" onClick={selectAllFiltered}
@@ -259,6 +288,24 @@ export function App() {
                   <button className="btn btn-sm" onClick={() => setSelected(new Set())}>清空选择</button>
                 )}
               </div>
+              {quickOpen && (
+                <div className="card" style={{ marginBottom: 10, padding: 12 }}>
+                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+                    <input className="input" style={{ flex: 2, minWidth: 280 }} value={quickUrl}
+                      onChange={(e) => setQuickUrl(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === "Enter") quickAdd(); }}
+                      placeholder="粘贴链接：instagram.com/账号 · facebook.com/主页 · linkedin.com/company/… · 官网" />
+                    <input className="input" style={{ width: 110 }} value={quickCountry}
+                      onChange={(e) => setQuickCountry(e.target.value)} placeholder="国家（可选）" />
+                    <input className="input" style={{ width: 150 }} value={quickName}
+                      onChange={(e) => setQuickName(e.target.value)} placeholder="公司名（可选）" />
+                    <button className="btn btn-green btn-sm" onClick={quickAdd} disabled={quickBusy}>
+                      {quickBusy ? "添加中…" : "添加入库"}
+                    </button>
+                  </div>
+                  {quickMsg && <div className="muted" style={{ fontSize: 12, marginTop: 6 }}>{quickMsg}</div>}
+                </div>
+              )}
               {verifyMsg && <div className="muted" style={{ marginBottom: 8 }}>{verifyMsg}</div>}
               <LeadsTable leads={shown} selected={selected} onToggle={toggle} onToggleAll={toggleAll}
                 onReply={reply} onOpen={setDetail} sort={sort} order={order} onSort={sortBy} />

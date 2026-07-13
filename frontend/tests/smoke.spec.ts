@@ -45,10 +45,28 @@ test("dashboard shows stats", async ({ page }) => {
 });
 
 // SAFETY: only checks the discovery page renders — never clicks 搜索深挖/导入 (would hit network / write DB).
-test("discovery page is present", async ({ page }) => {
+test("discovery page has multi-query textarea, presets and country picker", async ({ page }) => {
   await page.goto("/");
   await page.getByRole("button", { name: /客户开发/ }).click();
-  await expect(page.getByRole("button", { name: "搜索深挖" })).toBeVisible();
+  await expect(page.getByRole("button", { name: /搜索深挖/ })).toBeVisible();
+  await expect(page.locator("textarea")).toBeVisible();
+  await expect(page.getByRole("button", { name: /＋LED signage company/ })).toBeVisible();
+  await expect(page.getByPlaceholder("选择或输入国家")).toBeVisible();
+});
+
+// SAFETY: opens the quick-add panel and reads it — never clicks 添加入库.
+test("leads page has quick-add panel", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: /快速添加/ }).click();
+  await expect(page.getByPlaceholder(/粘贴链接/)).toBeVisible();
+  await expect(page.getByRole("button", { name: "添加入库" })).toBeVisible();
+});
+
+// SAFETY: only reveals the action bar and reads the button — never clicks it.
+test("action bar has one-click all-channel send button", async ({ page }) => {
+  await page.goto("/");
+  await page.locator("table tbody tr").first().locator("input[type=checkbox]").check();
+  await expect(page.getByRole("button", { name: /一键全渠道/ })).toBeVisible();
 });
 
 // SAFETY: only checks the channels page renders — never clicks 连接 (would launch a real browser).

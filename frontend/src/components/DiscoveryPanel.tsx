@@ -7,9 +7,22 @@ const ICP_LABEL: Record<string, string> = {
   signage: "标识/广告牌", "end-user": "终端用户",
 };
 
+const MARKETS = ["USA", "Canada", "Mexico", "Brazil", "Chile", "Argentina", "Colombia", "Peru",
+  "UK", "Germany", "France", "Spain", "Italy", "Netherlands", "Poland",
+  "UAE", "Saudi Arabia", "South Korea", "Japan", "Australia", "South Africa",
+  "India", "Thailand", "Vietnam", "Indonesia", "Philippines", "Turkey"];
+
+const DEFAULT_QUERIES = `LED video wall installer contact
+LED display rental company contact
+AV integrator LED screen contact`;
+
+// One click appends a proven angle as an extra search line.
+const PRESET_QUERIES = ["LED signage company", "stage production LED screen rental",
+  "church AV LED wall", "LED screen distributor", "digital billboard company"];
+
 export function DiscoveryPanel({ onImported }: { onImported: () => void }) {
   const [mode, setMode] = useState<"search" | "page">("search");
-  const [query, setQuery] = useState("LED video wall installer AV integrator USA contact");
+  const [query, setQuery] = useState(DEFAULT_QUERIES);
   const [url, setUrl] = useState("");
   const [country, setCountry] = useState("USA");
   const [cands, setCands] = useState<Candidate[]>([]);
@@ -17,11 +30,16 @@ export function DiscoveryPanel({ onImported }: { onImported: () => void }) {
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState("");
 
+  const queryLines = query.split("\n").map((l) => l.trim()).filter(Boolean);
+
   async function run() {
     if (mode === "page" && !url.trim()) { setMsg("请粘贴名录/经销商页 URL"); return; }
+    if (mode === "search" && queryLines.length === 0) { setMsg("请至少填一行搜索关键词"); return; }
     setBusy(true); setMsg(mode === "page" ? "抓取名录中…" : "搜索深挖中…"); setCands([]); setPicked(new Set());
     try {
-      const { job_id } = mode === "page" ? await startPageDiscover(url.trim(), 40) : await startDiscover(query, 10);
+      // 每行一条搜索；选了国家自动拼进关键词，结果按域名合并去重
+      const composed = queryLines.map((l) => (country.trim() ? `${l} ${country.trim()}` : l));
+      const { job_id } = mode === "page" ? await startPageDiscover(url.trim(), 40) : await startDiscover(composed, 10);
       const poll = setInterval(async () => {
         const j = await fetchDiscoverJob(job_id);
         setMsg(`进度 ${j.done}/${j.total}`);
@@ -43,12 +61,24 @@ export function DiscoveryPanel({ onImported }: { onImported: () => void }) {
 
   async function doImport() {
     const chosen = cands.filter((c) => picked.has(c.domain));
-    const res = await importLeads(country, chosen.map((c) => ({
-      company_en: c.title, website: c.domain, email: c.email,
-      phone: c.phone, instagram: c.instagram, facebook: c.facebook, linkedin: c.linkedin,
-      source: c.source, icp_type: c.icp_type, fit_score: c.fit_score,
-    })));
-    setMsg(`已导入 ${res.imported} 家`); onImported();
+    if (chosen.length === 0) { setMsg("请先勾选要导入的候选"); return; }
+    try {
+      const res = await importLeads(country, chosen.map((c) => ({
+        company_en: c.title, website: c.domain, email: c.email,
+        phone: c.phone, instagram: c.instagram, facebook: c.facebook, linkedin: c.linkedin,
+        source: c.source, icp_type: c.icp_type, fit_score: c.fit_score,
+      })));
+      const skipNote = res.skipped.length
+        ? `；${res.skipped.length} 家已在库跳过（${res.skipped.map((s) => `${s.website ?? s.company_en} → #${s.duplicate_of}`).join("、")}）`
+        : "";
+      setMsg(`已导入 ${res.imported} 家${skipNote}`);
+      // 表格状态列同步为已在库，避免误以为没导进去
+      const dupMap = new Map(res.skipped.map((s) => [s.website, s.duplicate_of]));
+      setCands((cs) => cs.map((c) => (picked.has(c.domain) && !c.duplicate_of
+        ? { ...c, duplicate_of: dupMap.get(c.domain) ?? -1 } : c)));
+      setPicked(new Set());
+      onImported();
+    } catch (e) { setMsg("导入失败：" + String(e)); }
   }
 
   const toggle = (d: string) => setPicked((s) => { const n = new Set(s); if (n.has(d)) { n.delete(d); } else { n.add(d); } return n; });
@@ -62,10 +92,29 @@ export function DiscoveryPanel({ onImported }: { onImported: () => void }) {
       {mode === "search" ? (
         <>
           <h3>搜索深挖：官网自动提取邮箱 / 电话 / WhatsApp / IG / FB</h3>
-          <div style={{ display: "flex", gap: 8, marginBottom: 10, flexWrap: "wrap" }}>
-            <input className="input" style={{ flex: 1, minWidth: 260 }} value={query} onChange={(e) => setQuery(e.target.value)} placeholder="关键词，如 LED video wall installer Texas" />
-            <input className="input" style={{ width: 90 }} value={country} onChange={(e) => setCountry(e.target.value)} placeholder="国家" />
-            <button className="btn btn-primary" onClick={run} disabled={busy}>{busy ? "搜索中…" : "搜索深挖"}</button>
+          <div className="muted" style={{ fontSize: 12, marginBottom: 6 }}>
+            一行一条搜索，多行会依次跑并按域名合并去重；选了目标国家会自动拼进每条关键词。
+          </div>
+          <textarea className="input" style={{ width: "100%", height: 74, marginBottom: 6 }}
+            value={query} onChange={(e) => setQuery(e.target.value)}
+            placeholder={"一行一条，如：\nLED video wall installer contact\nLED display rental company contact"} />
+          <div style={{ display: "flex", gap: 6, marginBottom: 8, flexWrap: "wrap", alignItems: "center" }}>
+            <span className="muted" style={{ fontSize: 12 }}>加一条：</span>
+            {PRESET_QUERIES.map((p) => (
+              <button key={p} className="btn btn-sm" disabled={query.includes(p)}
+                onClick={() => setQuery((q) => (q.trim() ? q.trimEnd() + "\n" : "") + p)}>＋{p}</button>
+            ))}
+          </div>
+          <div style={{ display: "flex", gap: 8, marginBottom: 10, flexWrap: "wrap", alignItems: "center" }}>
+            <label className="muted" style={{ fontSize: 13 }}>目标国家</label>
+            <input className="input" list="market-list" style={{ width: 150 }} value={country}
+              onChange={(e) => setCountry(e.target.value)} placeholder="选择或输入国家" />
+            <datalist id="market-list">
+              {MARKETS.map((m) => <option key={m} value={m} />)}
+            </datalist>
+            <button className="btn btn-primary" onClick={run} disabled={busy}>
+              {busy ? "搜索中…" : `搜索深挖（${queryLines.length} 条）`}
+            </button>
           </div>
         </>
       ) : (
@@ -107,9 +156,11 @@ export function DiscoveryPanel({ onImported }: { onImported: () => void }) {
                     <td>{c.facebook
                       ? <a href={`https://facebook.com/${c.facebook}`} target="_blank" rel="noreferrer">{c.facebook}</a>
                       : dash}</td>
-                    <td>{c.duplicate_of
-                      ? <span className="warn-text">已在库 #{c.duplicate_of}</span>
-                      : <span style={{ color: "var(--green)" }}>新</span>}</td>
+                    <td>{c.duplicate_of === -1
+                      ? <span style={{ color: "var(--green)" }}>已导入 ✓</span>
+                      : c.duplicate_of
+                        ? <span className="warn-text">已在库 #{c.duplicate_of}</span>
+                        : <span style={{ color: "var(--green)" }}>新</span>}</td>
                   </tr>
                 ))}
               </tbody>

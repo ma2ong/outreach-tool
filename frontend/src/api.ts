@@ -134,13 +134,26 @@ export async function fetchJob(id: string): Promise<SendJob> {
   return r.json();
 }
 
-export async function startDiscover(query: string, limit = 10): Promise<{ job_id: string }> {
+export async function startDiscover(queries: string[], limit = 10): Promise<{ job_id: string }> {
   const r = await fetch("/api/discover", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ query, limit }),
+    body: JSON.stringify({ queries, limit }),
   });
   if (!r.ok) throw new Error(`discover ${r.status}`);
+  return r.json();
+}
+
+export async function quickAddLead(body: { url: string; country?: string; company_en?: string }): Promise<{ duplicate_of: number | null; lead: Lead }> {
+  const r = await fetch("/api/leads/quick_add", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!r.ok) {
+    const detail = (await r.json().catch(() => null))?.detail;
+    throw new Error(detail || `quick_add ${r.status}`);
+  }
   return r.json();
 }
 
@@ -163,8 +176,8 @@ export async function fetchDiscoverJob(id: string): Promise<DiscoverJob> {
 export async function importLeads(country: string, candidates: {
   company_en: string; website: string; email: string | null;
   phone?: string | null; instagram?: string | null; facebook?: string | null; linkedin?: string | null;
-  source?: string | null;
-}[]): Promise<{ imported: number }> {
+  source?: string | null; icp_type?: string | null; fit_score?: number | null;
+}[]): Promise<{ imported: number; skipped: { company_en: string; website: string | null; duplicate_of: number }[] }> {
   const r = await fetch("/api/leads/import", {
     method: "POST",
     headers: { "Content-Type": "application/json" },

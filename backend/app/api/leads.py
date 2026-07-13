@@ -10,6 +10,13 @@ from app.models import Lead
 router = APIRouter(prefix="/api")
 
 REPLY_CHANNELS = ("email", "whatsapp", "instagram")
+ENRICH_FN = None  # injectable in tests; None -> real website enrich
+
+
+class QuickAddRequest(BaseModel):
+    url: str
+    country: str | None = None
+    company_en: str | None = None
 
 
 class ReplyRequest(BaseModel):
@@ -68,6 +75,44 @@ def export_leads(country: str | None = None, channel: str | None = None,
         content=export.build_xlsx(leads),
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": f'attachment; filename="leads_{stamp}.xlsx"'})
+
+
+@router.post("/leads/quick_add")
+def quick_add_lead(req: QuickAddRequest, conn=Depends(get_conn)):
+    """Paste any customer URL (IG/FB/LinkedIn/website) -> lead in one click."""
+    from app import icp as icp_mod, quick_add as qa
+    try:
+        fields = qa.parse_url(req.url)
+    except qa.BadUrl as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    dup = repo.find_duplicate(conn, website=fields.get("website"),
+                              instagram=fields.get("instagram"))
+    if dup:
+        return {"duplicate_of": dup, "lead": repo.get_lead(conn, dup)}
+    data: dict = dict(fields)
+    company_from_site = None
+    if fields.get("website"):
+        enrich = ENRICH_FN or _real_enrich
+        try:
+            info = enrich(fields["website"]) or {}
+        except Exception:  # noqa: BLE001 — enrich failure must not block a manual add
+            info = {}
+        for k in ("email", "phone", "instagram", "facebook", "linkedin"):
+            data.setdefault(k, info.get(k))
+        company_from_site = info.get("company")
+        if info.get("icp_type") and info["icp_type"] != "unknown":
+            data["target_fit"] = f"{icp_mod.label(info['icp_type'])} ({info.get('fit_score', 0)})"
+    data["company_en"] = (req.company_en or "").strip() or company_from_site or qa.display_name(fields)
+    data["country"] = (req.country or "").strip() or None
+    data.setdefault("target_fit", "quick-add")
+    no = repo.insert_lead(conn, data)
+    repo.add_note(conn, no, f"快速添加自 {req.url.strip()}")
+    return {"duplicate_of": None, "lead": repo.get_lead(conn, no)}
+
+
+def _real_enrich(domain: str) -> dict:
+    from app.enrich import enrich_domain
+    return enrich_domain(domain)
 
 
 @router.get("/leads/duplicates")

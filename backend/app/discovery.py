@@ -12,8 +12,9 @@ def _enrich_candidates(conn, domains: list[dict], enrich_fn: Callable,
     total = len(domains)
     for i, d in enumerate(domains, 1):
         info = enrich_fn(d["domain"])
-        dup = repo.find_duplicate(conn, website=d["domain"], instagram=None,
-                                  company_en=d.get("title") or None)
+        # Dedupe on website/instagram only: company-name matching false-positives on
+        # generic titles ("Contact", "Home") and silently blocked real imports.
+        dup = repo.find_duplicate(conn, website=d["domain"], instagram=info.get("instagram"))
         out.append({
             "domain": d["domain"],
             "title": d.get("title") or info.get("company") or d["domain"],

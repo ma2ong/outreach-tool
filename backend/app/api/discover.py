@@ -14,8 +14,9 @@ HARVEST_FN = None   # injectable in tests; None -> real harvest
 
 
 class DiscoverRequest(BaseModel):
-    query: str
-    limit: int = 10
+    query: str | None = None          # single query (legacy)
+    queries: list[str] | None = None  # multiple queries, run sequentially, dedup by domain
+    limit: int = 10                   # per query
 
 
 class PageDiscoverRequest(BaseModel):
@@ -42,13 +43,20 @@ class ImportRequest(BaseModel):
     candidates: list[Candidate]
 
 
-def _run(job_id: str, query: str, limit: int):
+def _run(job_id: str, queries: list[str], limit: int):
     conn = connect(DB_PATH)
     try:
-        cands = discovery.run_discovery(
-            conn, query, limit, search_fn=SEARCH_FN, enrich_fn=ENRICH_FN,
-            on_progress=lambda done, total: jobs.update(job_id, done))
-        jobs.finish(job_id, {"candidates": cands})
+        seen: set[str] = set()
+        merged: list[dict] = []
+        for qi, query in enumerate(queries):
+            cands = discovery.run_discovery(
+                conn, query, limit, search_fn=SEARCH_FN, enrich_fn=ENRICH_FN,
+                on_progress=lambda done, total, qi=qi: jobs.update(job_id, qi * limit + done))
+            for c in cands:
+                if c["domain"] not in seen:
+                    seen.add(c["domain"])
+                    merged.append(c)
+        jobs.finish(job_id, {"candidates": merged})
     except Exception as exc:  # noqa: BLE001
         jobs.fail(job_id, str(exc))
     finally:
@@ -70,8 +78,11 @@ def _run_page(job_id: str, url: str, limit: int):
 
 @router.post("/discover")
 def discover(req: DiscoverRequest, background: BackgroundTasks):
-    job_id = jobs.create(total=req.limit)
-    background.add_task(_run, job_id, req.query, req.limit)
+    queries = [q.strip() for q in (req.queries or ([req.query] if req.query else [])) if q and q.strip()]
+    if not queries:
+        raise HTTPException(status_code=400, detail="query required")
+    job_id = jobs.create(total=req.limit * len(queries))
+    background.add_task(_run, job_id, queries, req.limit)
     return {"job_id": job_id}
 
 
@@ -96,8 +107,13 @@ def discover_job(job_id: str):
 def import_leads(req: ImportRequest, conn=Depends(get_conn)):
     from app import icp as icp_mod
     imported = 0
+    skipped: list[dict] = []
     for c in req.candidates:
-        if c.website and repository.find_duplicate(conn, website=c.website, instagram=c.instagram, company_en=c.company_en):
+        # Same rule as discovery's status column: website/instagram only, so what the
+        # table showed as 新 can never be silently dropped here as a "duplicate".
+        dup = repository.find_duplicate(conn, website=c.website, instagram=c.instagram)
+        if dup:
+            skipped.append({"company_en": c.company_en, "website": c.website, "duplicate_of": dup})
             continue
         fit = "discovered"
         if c.icp_type and c.icp_type != "unknown":
@@ -110,4 +126,4 @@ def import_leads(req: ImportRequest, conn=Depends(get_conn)):
         if c.icp_type and c.icp_type != "unknown":
             icp_mod.apply_to_lead(conn, no, {"icp_type": c.icp_type, "fit_score": c.fit_score or 0})
         imported += 1
-    return {"imported": imported}
+    return {"imported": imported, "skipped": skipped}
