@@ -4,6 +4,7 @@ import time
 from typing import Callable
 
 from app import campaigns
+from app.personalize import render
 
 
 def eligible_leads(conn, lead_nos: list[int], channel: str) -> list[dict]:
@@ -11,10 +12,11 @@ def eligible_leads(conn, lead_nos: list[int], channel: str) -> list[dict]:
         return []
     placeholders = ",".join("?" * len(lead_nos))
     rows = conn.execute(
-        f"""SELECT l.no, l.company_en, l.email FROM leads l
+        f"""SELECT l.no, l.company_en, l.contact_name, l.country, l.city, l.email FROM leads l
             WHERE l.no IN ({placeholders})
               AND l.email IS NOT NULL AND l.email != ''
               AND (l.email_status IS NULL OR l.email_status != 'invalid')
+              AND COALESCE(l.do_not_contact, 0) = 0
               AND l.no NOT IN (
                   SELECT lead_no FROM outreach WHERE channel=? AND status IN ('messaged','replied'))
             ORDER BY l.no""",
@@ -49,9 +51,8 @@ def send_campaign(conn, lead_nos: list[int], subject: str, body: str,
     sent = failed = 0
     errors: list[dict] = []
     for i, lead in enumerate(targets, 1):
-        name = lead["company_en"]
         try:
-            sender(lead["email"], subject.format(name=name), body.format(name=name), attachment)
+            sender(lead["email"], render(subject, lead), render(body, lead), attachment)
             _mark_messaged(conn, lead["no"], today)
             campaigns.log_send(conn, lead["no"], "email", label)
             sent += 1

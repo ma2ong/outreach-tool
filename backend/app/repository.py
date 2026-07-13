@@ -138,7 +138,8 @@ def get_lead(conn, no: int) -> Lead | None:
 
 _EDITABLE = {"company_en", "company_local", "country", "region", "city", "contact_name",
              "title", "email", "phone", "website", "instagram", "facebook", "linkedin",
-             "business", "target_fit", "stage", "tags", "follow_up_date", "next_action"}
+             "business", "target_fit", "stage", "tags", "follow_up_date", "next_action",
+             "do_not_contact"}
 
 
 def update_lead(conn, no: int, fields: dict) -> bool:

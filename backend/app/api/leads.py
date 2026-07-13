@@ -33,6 +33,7 @@ class LeadUpdate(BaseModel):
     tags: str | None = None
     follow_up_date: str | None = None
     next_action: str | None = None
+    do_not_contact: bool | None = None
 
 
 class NoteRequest(BaseModel):

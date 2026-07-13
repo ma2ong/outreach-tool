@@ -61,7 +61,7 @@ export function SequencesPanel({ onChanged }: { onChanged?: () => void }) {
   }
 
   async function poll() {
-    try { const r = await pollReplies(); setMsg(`已拉取邮件回复：新标记 ${r.newly_replied} 家已回复`); reload(); onChanged?.(); }
+    try { const r = await pollReplies(); setMsg(`已拉取邮件：回复 ${r.replies} 封、退信 ${r.bounces} 封（邮箱已标无效）、退订 ${r.unsubscribes} 家（已停发）。回复正文在"收件箱"页查看。`); reload(); onChanged?.(); }
     catch (e) { setMsg("拉取回复失败（需配置 Gmail 授权码）：" + String(e)); }
   }
 
@@ -105,7 +105,7 @@ export function SequencesPanel({ onChanged }: { onChanged?: () => void }) {
       <div className="card" style={{ marginBottom: 16 }}>
         <h3>新建跟进序列</h3>
         <div className="muted" style={{ fontSize: 12, marginBottom: 10 }}>
-          冷触达发一次基本没人回，回复几乎都在第 2–4 次跟进。设定几步话术和间隔天数，到期后系统会把这一步放进上面的待发队列，仍由你手动确认发送（守住防封）。正文里用 {"{name}"} 代表公司名。
+          冷触达发一次基本没人回，回复几乎都在第 2–4 次跟进。设定几步话术和间隔天数，到期后系统会把这一步放进上面的待发队列，仍由你手动确认发送（守住防封）。正文里可用变量：{"{name}"}=公司名、{"{contact}"}=联系人（缺失时自动写 there）、{"{country}"}、{"{city}"}。
         </div>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 10 }}>
           <input className="input" placeholder="序列名称，如「冷触达 3 步」" value={name} onChange={(e) => setName(e.target.value)} style={{ minWidth: 220 }} />

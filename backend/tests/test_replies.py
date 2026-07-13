@@ -46,5 +46,6 @@ def test_reply_stops_sequence_enrollment(conn):
 
 
 def test_poll_uses_injected_fetcher(conn):
-    res = replies.poll_replies(conn, fetch_senders=lambda days: ["g@gamma.com"])
+    fake = [{"from_addr": "g@gamma.com", "subject": "Re: LED", "body": "hi", "received_at": ""}]
+    res = replies.poll_replies(conn, fetch_messages=lambda days: fake)
     assert res["lead_nos"] == [3]

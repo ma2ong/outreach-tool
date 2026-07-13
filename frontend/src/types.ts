@@ -27,6 +27,7 @@ export interface Lead {
   linkedin: string | null;
   whatsapp_verified: boolean;
   email_status: string | null;
+  do_not_contact: boolean;
   business: string | null;
   target_fit: string | null;
   stage: string;
@@ -130,6 +131,19 @@ export interface Candidate {
   icp_type?: string | null;
   fit_score?: number | null;
   duplicate_of: number | null;
+}
+export interface InboxMessage {
+  id: number;
+  lead_no: number;
+  channel: string;
+  kind: string;
+  from_addr: string | null;
+  subject: string | null;
+  body: string | null;
+  received_at: string | null;
+  is_read: number;
+  company_en: string;
+  country: string | null;
 }
 export interface DiscoverJob {
   id: string;

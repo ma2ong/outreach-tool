@@ -106,6 +106,7 @@ def due_queue(conn, channel: str | None = None) -> list[dict]:
         " JOIN leads l ON l.no = e.lead_no"
         " JOIN sequence_steps st ON st.sequence_id = e.sequence_id AND st.step_order = e.current_step"
         " WHERE e.status='active' AND e.next_due_date <= date('now')"
+        "   AND COALESCE(l.do_not_contact, 0) = 0"
         "   AND l.no NOT IN (SELECT lead_no FROM outreach WHERE channel=s.channel AND status='replied')")
     params: list = []
     if channel:

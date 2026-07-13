@@ -72,6 +72,7 @@ class Lead(BaseModel):
     target_fit: str | None = None
     whatsapp_verified: bool = False
     email_status: str | None = None
+    do_not_contact: bool = False
     stage: str = "new"
     tags: str | None = None
     follow_up_date: str | None = None

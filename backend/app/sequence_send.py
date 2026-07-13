@@ -14,11 +14,13 @@ from app import campaigns
 from app import channel_outreach as co
 from app import outreach as email_outreach
 from app import sequences
+from app.personalize import render
 
 
 def _contact(conn, lead_no: int) -> dict:
-    r = conn.execute("SELECT no, company_en, email, phone, instagram FROM leads WHERE no=?",
-                     (lead_no,)).fetchone()
+    r = conn.execute(
+        "SELECT no, company_en, contact_name, country, city, email, phone, instagram"
+        " FROM leads WHERE no=?", (lead_no,)).fetchone()
     return dict(r) if r else {}
 
 
@@ -40,15 +42,14 @@ def send_due(conn, enrollment_ids, *, sender=None, engine=None,
     for idx, d in enumerate(items, 1):
         ch, no = d["channel"], d["lead_no"]
         lead = _contact(conn, no)
-        name = lead.get("company_en", "")
         try:
             if ch == "email":
                 to = lead.get("email")
                 if not to:
                     deferred += 1
                     continue
-                sender(to, (d.get("subject") or "").format(name=name),
-                       d["body"].format(name=name), d.get("image") or image_default)
+                sender(to, render(d.get("subject"), lead),
+                       render(d["body"], lead), d.get("image") or image_default)
                 email_outreach._mark_messaged(conn, no, today)
             else:
                 if remaining.get(ch, 0) <= 0 or batch_used.get(ch, 0) >= co.MAX_BATCH:
@@ -58,7 +59,7 @@ def send_due(conn, enrollment_ids, *, sender=None, engine=None,
                 if not target:
                     deferred += 1
                     continue
-                engine.send_message(ch, target, d["body"].format(name=name),
+                engine.send_message(ch, target, render(d["body"], lead),
                                     d.get("image") or image_default)
                 co._mark_messaged(conn, no, ch, today)
                 remaining[ch] -= 1

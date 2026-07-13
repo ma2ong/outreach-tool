@@ -59,6 +59,22 @@ test("channels page is present", async ({ page }) => {
   await expect(page.locator(".card h3", { hasText: "渠道连接" })).toBeVisible();
 });
 
+// SAFETY: only checks the inbox page renders — never clicks 拉取邮件 (would hit real IMAP).
+test("inbox page is present", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: /收件箱/ }).click();
+  await expect(page.locator(".card h3", { hasText: "收件箱" })).toBeVisible();
+  await expect(page.getByRole("button", { name: /拉取邮件/ })).toBeVisible();
+});
+
+// SAFETY: opens the drawer and reads the do-not-contact toggle — never checks it.
+test("lead drawer shows do-not-contact toggle", async ({ page }) => {
+  await page.goto("/");
+  await page.locator("table tbody tr").first().locator("td").nth(2).click();
+  await expect(page.getByText(/不再联系/)).toBeVisible();
+  await page.locator(".drawer-close").click();
+});
+
 test("theme toggle switches to light and persists attribute", async ({ page }) => {
   await page.goto("/");
   await page.getByRole("button", { name: /浅色/ }).click();

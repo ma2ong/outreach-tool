@@ -110,6 +110,17 @@ CREATE TABLE IF NOT EXISTS send_log (
     campaign TEXT NOT NULL,
     sent_at TEXT
 );
+CREATE TABLE IF NOT EXISTS inbox_messages (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    lead_no INTEGER NOT NULL,
+    channel TEXT NOT NULL DEFAULT 'email',
+    kind TEXT NOT NULL DEFAULT 'reply',
+    from_addr TEXT,
+    subject TEXT,
+    body TEXT,
+    received_at TEXT,
+    is_read INTEGER DEFAULT 0
+);
 """
 
 # Created after column migration so indexes on new columns (stage) don't fail on old DBs.
@@ -122,6 +133,9 @@ CREATE INDEX IF NOT EXISTS idx_seq_steps ON sequence_steps(sequence_id, step_ord
 CREATE INDEX IF NOT EXISTS idx_enroll_due ON sequence_enrollments(status, next_due_date);
 CREATE INDEX IF NOT EXISTS idx_enroll_lead ON sequence_enrollments(lead_no);
 CREATE INDEX IF NOT EXISTS idx_send_log_campaign ON send_log(campaign, channel);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_inbox_dedup
+    ON inbox_messages(lead_no, kind, from_addr, subject, received_at);
+CREATE INDEX IF NOT EXISTS idx_inbox_read ON inbox_messages(is_read);
 """
 
 # Additive columns for pre-existing tables (DB created before later upgrades).
@@ -132,6 +146,7 @@ _TABLE_COLUMNS = {
         "follow_up_date": "TEXT",
         "next_action": "TEXT",
         "email_status": "TEXT",
+        "do_not_contact": "INTEGER DEFAULT 0",
     },
     "templates": {
         "lang": "TEXT",

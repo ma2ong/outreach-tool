@@ -74,7 +74,7 @@
   发送按轮询选下一个 active 邮箱，尊重每箱日限。单箱→多箱，摊薄单域名风险（Smartlead 打法）。
 - **I2 邮箱验证** —— enrich 或发送前做 MX 查询 + SMTP RCPT 探测（免费），分类 valid/invalid/role(info@,sales@)/catch-all，
   存 leads.email_status；发送自动跳过 invalid，降 bounce 保送达。
-- **I3 发送窗口** —— due 队列只在目标国工作时段内提示发送（时区友好），避免半夜发被当垃圾。
+- **I3 发送窗口** —— ~~due 队列只在目标国工作时段内提示发送（时区友好）~~ **暂缓**：手动点发工具里业务员在自己工作时段发送，时区窗口价值边际，且需 country→timezone 映射，YAGNI。
 
 ---
 

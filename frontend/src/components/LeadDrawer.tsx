@@ -74,6 +74,21 @@ export function LeadDrawer({ lead, onClose, onChange }: {
           </select>
         </div>
 
+        <div className="field">
+          <label style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer" }}
+            title="打开后此客户被所有发送路径排除：群发、WA/IG、跟进序列都不会再触达（客户要求退订或不想再联系时用）">
+            <input type="checkbox" checked={!!draft.do_not_contact}
+              onChange={async (e) => {
+                const v = e.target.checked;
+                setDraft((d) => ({ ...d, do_not_contact: v }));
+                try { const u = await updateLead(lead.no, { do_not_contact: v }); onChange(u); }
+                catch (er) { setErr(String(er)); }
+              }} />
+            🚫 不再联系（从所有发送中排除）
+          </label>
+          {!!draft.do_not_contact && <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>已排除：群发、WhatsApp/Instagram、跟进序列都不会再发给这家。</div>}
+        </div>
+
         <div className="field-grid">
           {field("follow_up_date", "下次跟进日期", "date")}
           {field("next_action", "下一步动作")}

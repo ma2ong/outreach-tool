@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { fetchLeads, fetchLeadsPage, fetchStats, markReplied, fetchSequences, enrollLeads, startVerify, fetchVerifyJob, startClassify, fetchClassifyJob, fetchDuplicates, mergeDuplicates } from "./api";
+import { fetchLead, fetchLeads, fetchLeadsPage, fetchStats, markReplied, fetchSequences, enrollLeads, startVerify, fetchVerifyJob, startClassify, fetchClassifyJob, fetchDuplicates, mergeDuplicates, fetchInboxUnread } from "./api";
 import type { Lead, Stats, Sequence } from "./types";
 import { Dashboard } from "./components/Dashboard";
 import { LeadsTable } from "./components/LeadsTable";
@@ -10,8 +10,9 @@ import { ConnectionPanel } from "./components/ConnectionPanel";
 import { MailboxPanel } from "./components/MailboxPanel";
 import { ProductsPanel } from "./components/ProductsPanel";
 import { SequencesPanel } from "./components/SequencesPanel";
+import { InboxPanel } from "./components/InboxPanel";
 
-type Page = "dashboard" | "leads" | "sequences" | "discovery" | "products" | "channels";
+type Page = "dashboard" | "leads" | "inbox" | "sequences" | "discovery" | "products" | "channels";
 
 function exportQuery(params: Record<string, string>): string {
   const qs = new URLSearchParams(Object.entries(params).filter(([, v]) => v)).toString();
@@ -21,6 +22,7 @@ function exportQuery(params: Record<string, string>): string {
 const PAGES: { id: Page; label: string; ico: string }[] = [
   { id: "dashboard", label: "仪表盘", ico: "▦" },
   { id: "leads", label: "客户库", ico: "☰" },
+  { id: "inbox", label: "收件箱", ico: "✉" },
   { id: "sequences", label: "跟进序列", ico: "⇉" },
   { id: "discovery", label: "客户开发", ico: "⌕" },
   { id: "products", label: "产品报价", ico: "▤" },
@@ -56,6 +58,14 @@ export function App() {
   const [sequences, setSequences] = useState<Sequence[]>([]);
   const [enrollMsg, setEnrollMsg] = useState("");
   const [err, setErr] = useState("");
+  const [unread, setUnread] = useState(0);
+
+  const refreshUnread = () => fetchInboxUnread().then(setUnread).catch(() => {});
+  useEffect(() => { refreshUnread(); }, []);
+
+  async function openLead(no: number) {
+    try { setDetail(await fetchLead(no)); } catch (e) { setErr(String(e)); }
+  }
 
   const PAGE_SIZE = 50;
 
@@ -175,6 +185,7 @@ export function App() {
         {PAGES.map((p) => (
           <button key={p.id} className={`nav-item${page === p.id ? " active" : ""}`} onClick={() => setPage(p.id)}>
             <span className="ico">{p.ico}</span><span className="nav-label">{p.label}</span>
+            {p.id === "inbox" && unread > 0 && <span className="unread-dot">{unread}</span>}
           </button>
         ))}
       </aside>
@@ -275,7 +286,8 @@ export function App() {
               )}
             </>
           )}
-          {page === "sequences" && <SequencesPanel onChanged={reload} />}
+          {page === "inbox" && <InboxPanel onOpenLead={openLead} onUnreadChange={() => { refreshUnread(); reload(); }} />}
+          {page === "sequences" && <SequencesPanel onChanged={() => { reload(); refreshUnread(); }} />}
           {page === "discovery" && <DiscoveryPanel onImported={reload} />}
           {page === "products" && <ProductsPanel />}
           {page === "channels" && <><ConnectionPanel /><MailboxPanel /></>}

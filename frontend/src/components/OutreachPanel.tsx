@@ -135,6 +135,9 @@ export function OutreachPanel({ selected, countries = [], firstCompany = "", onD
               预览（发给 {firstCompany} 时）：{subject.replaceAll("{name}", firstCompany)} — {body.replaceAll("{name}", firstCompany).slice(0, 120)}…
             </div>
           )}
+          <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>
+            可用变量：{"{name}"}=公司名 · {"{contact}"}=联系人（缺失自动写 there）· {"{country}"} · {"{city}"}
+          </div>
         </>
       ) : (
         <>

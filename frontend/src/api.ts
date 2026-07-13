@@ -268,9 +268,32 @@ export async function fetchClassifyJob(id: string): Promise<{ status: string; do
   return r.json();
 }
 
-export async function pollReplies(): Promise<{ matched: number; newly_replied: number; lead_nos: number[] }> {
+export async function pollReplies(): Promise<{ replies: number; bounces: number; unsubscribes: number; stored: number; lead_nos: number[] }> {
   const r = await fetch("/api/replies/poll", { method: "POST" });
   if (!r.ok) throw new Error(`poll ${r.status}`);
+  return r.json();
+}
+
+export async function fetchInbox(unreadOnly = false): Promise<import("./types").InboxMessage[]> {
+  const r = await fetch(`/api/inbox${unreadOnly ? "?unread_only=1" : ""}`);
+  if (!r.ok) throw new Error(`inbox ${r.status}`);
+  return r.json();
+}
+
+export async function fetchInboxUnread(): Promise<number> {
+  const r = await fetch("/api/inbox/unread_count");
+  if (!r.ok) throw new Error(`inbox ${r.status}`);
+  return (await r.json()).count;
+}
+
+export async function markInboxRead(id: number): Promise<void> {
+  const r = await fetch(`/api/inbox/${id}/read`, { method: "POST" });
+  if (!r.ok) throw new Error(`inbox ${r.status}`);
+}
+
+export async function fetchLead(no: number): Promise<Lead> {
+  const r = await fetch(`/api/leads/${no}`);
+  if (!r.ok) throw new Error(`lead ${r.status}`);
   return r.json();
 }
 
