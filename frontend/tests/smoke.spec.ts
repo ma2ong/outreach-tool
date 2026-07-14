@@ -1,4 +1,15 @@
+import { readFileSync } from "node:fs";
 import { test, expect } from "@playwright/test";
+
+// The app is password-gated once backend/auth_password.txt exists (online mode).
+// Log in first so the smoke run tests the app, not the login page.
+test.beforeEach(async ({ page }) => {
+  const status = await (await page.request.get("/api/auth/status")).json();
+  if (!status.enabled) return;
+  const password = readFileSync("../backend/auth_password.txt", "utf8").trim();
+  const r = await page.request.post("/api/login", { data: { password } });
+  expect(r.ok(), "smoke login failed — check backend/auth_password.txt").toBeTruthy();
+});
 
 test("shell loads with sidebar and leads table", async ({ page }) => {
   await page.goto("/");
@@ -52,6 +63,18 @@ test("discovery page has multi-query textarea, presets and country picker", asyn
   await expect(page.locator("textarea")).toBeVisible();
   await expect(page.getByRole("button", { name: /＋LED signage company/ })).toBeVisible();
   await expect(page.getByPlaceholder("选择或输入国家")).toBeVisible();
+});
+
+// SAFETY: reads the screening controls only — never runs a search.
+test("discovery has peer/country screening on by default", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: /客户开发/ }).click();
+  await expect(page.getByText(/排除同行\/供应商/)).toBeVisible();
+  await expect(page.locator("input[type=checkbox]").first()).toBeChecked();
+  // India/Pakistan pre-excluded, shown as active chips
+  await expect(page.getByRole("button", { name: "✓ India" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "✓ Pakistan" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Nigeria" })).toBeVisible();
 });
 
 // SAFETY: opens the quick-add panel and reads it — never clicks 添加入库.

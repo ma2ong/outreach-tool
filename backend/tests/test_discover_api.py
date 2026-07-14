@@ -124,6 +124,79 @@ def test_quick_add_bad_url_400(tmp_path):
                        json={"url": "https://instagram.com/p/Cxyz/"}).status_code == 400
 
 
+def test_import_uses_candidate_country_when_given(tmp_path):
+    """Searching 'South Korea' also surfaces US firms — each lead keeps its own country."""
+    jobs.clear()
+    client, db = _client(tmp_path)
+    client.post("/api/leads/import", json={"country": "South Korea", "candidates": [
+        {"company_en": "Ara", "website": "arasystem.kr", "country": "South Korea"},
+        {"company_en": "US Co", "website": "usco.com", "country": "Mexico"},
+        {"company_en": "No Country", "website": "mystery.io"}]})
+    conn = connect(db)
+    got = {r["website"]: r["country"] for r in conn.execute("SELECT website, country FROM leads")}
+    assert got["arasystem.kr"] == "South Korea"
+    assert got["usco.com"] == "Mexico"
+    assert got["mystery.io"] == "South Korea"  # falls back to the request country
+
+
+def test_discover_flags_chinese_peers_and_directories(tmp_path):
+    import app.api.discover as disc
+    jobs.clear()
+    client, _ = _client(tmp_path)
+    disc.SEARCH_FN = lambda q, limit: [{"domain": "gldled.com", "title": "GLD LED"},
+                                       {"domain": "alibaba.com", "title": "Alibaba"},
+                                       {"domain": "arasystem.kr", "title": "Ara System"}]
+    disc.ENRICH_FN = lambda d: {"phone": "+8613809866355" if d == "gldled.com" else "+827048950794"}
+    try:
+        r = client.post("/api/discover", json={"queries": ["led"], "limit": 10})
+        cands = client.get(f"/api/discover/jobs/{r.json()['job_id']}").json()["result"]["candidates"]
+        by = {c["domain"]: c for c in cands}
+        assert by["gldled.com"]["excluded"] and "同行" in by["gldled.com"]["exclude_reason"]
+        assert by["alibaba.com"]["exclude_reason"] == "B2B 目录站/平台"
+        assert not by["arasystem.kr"]["excluded"]
+        assert by["arasystem.kr"]["country"] == "South Korea"
+    finally:
+        disc.SEARCH_FN = lambda q, limit: [{"domain": "alpha.com", "title": "Alpha"},
+                                           {"domain": "newco.com", "title": "New Co"}]
+        disc.ENRICH_FN = lambda d: {"domain": d, "emails": [f"info@{d}"], "email": f"info@{d}"}
+
+
+def test_discover_custom_exclude_countries(tmp_path):
+    import app.api.discover as disc
+    jobs.clear()
+    client, _ = _client(tmp_path)
+    disc.SEARCH_FN = lambda q, limit: [{"domain": "ledindia.in", "title": "LED India"}]
+    disc.ENRICH_FN = lambda d: {"phone": "+919876543210"}
+    try:
+        r = client.post("/api/discover", json={"queries": ["led"], "limit": 10,
+                                               "exclude_countries": ["India"]})
+        c = client.get(f"/api/discover/jobs/{r.json()['job_id']}").json()["result"]["candidates"][0]
+        assert c["excluded"] and c["exclude_reason"] == "排除国家（India）"
+    finally:
+        disc.SEARCH_FN = lambda q, limit: [{"domain": "alpha.com", "title": "Alpha"},
+                                           {"domain": "newco.com", "title": "New Co"}]
+        disc.ENRICH_FN = lambda d: {"domain": d, "emails": [f"info@{d}"], "email": f"info@{d}"}
+
+
+def test_excluded_candidate_skips_enrich(tmp_path):
+    """A peer/directory must not cost an enrich fetch — that is the slow part."""
+    import app.api.discover as disc
+    jobs.clear()
+    client, _ = _client(tmp_path)
+    calls: list[str] = []
+    disc.SEARCH_FN = lambda q, limit: [{"domain": "alibaba.com", "title": "Alibaba"},
+                                       {"domain": "newco.com", "title": "New Co"}]
+    disc.ENRICH_FN = lambda d: (calls.append(d), {"email": f"info@{d}"})[1]
+    try:
+        r = client.post("/api/discover", json={"queries": ["led"], "limit": 10})
+        client.get(f"/api/discover/jobs/{r.json()['job_id']}")
+        assert calls == ["newco.com"]
+    finally:
+        disc.SEARCH_FN = lambda q, limit: [{"domain": "alpha.com", "title": "Alpha"},
+                                           {"domain": "newco.com", "title": "New Co"}]
+        disc.ENRICH_FN = lambda d: {"domain": d, "emails": [f"info@{d}"], "email": f"info@{d}"}
+
+
 def test_discover_page_harvests_and_tags_source(tmp_path):
     import app.api.discover as disc
     jobs.clear()

@@ -1,5 +1,23 @@
 import type { Lead, Stats, SendJob, DiscoverJob } from "./types";
 
+export async function fetchAuthStatus(): Promise<{ enabled: boolean; authed: boolean }> {
+  const r = await fetch("/api/auth/status");
+  if (!r.ok) throw new Error(`auth ${r.status}`);
+  return r.json();
+}
+
+export async function login(password: string): Promise<void> {
+  const r = await fetch("/api/login", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ password }),
+  });
+  if (!r.ok) {
+    const detail = (await r.json().catch(() => null))?.detail;
+    throw new Error(detail || `login ${r.status}`);
+  }
+}
+
 export async function fetchLeads(params: Record<string, string> = {}): Promise<Lead[]> {
   const qs = new URLSearchParams(Object.entries(params).filter(([, v]) => v)).toString();
   const r = await fetch(`/api/leads${qs ? "?" + qs : ""}`);
@@ -134,11 +152,13 @@ export async function fetchJob(id: string): Promise<SendJob> {
   return r.json();
 }
 
-export async function startDiscover(queries: string[], limit = 10): Promise<{ job_id: string }> {
+export interface ScreenOpts { exclude_countries?: string[]; exclude_peers?: boolean }
+
+export async function startDiscover(queries: string[], limit = 10, screen: ScreenOpts = {}): Promise<{ job_id: string }> {
   const r = await fetch("/api/discover", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ queries, limit }),
+    body: JSON.stringify({ queries, limit, ...screen }),
   });
   if (!r.ok) throw new Error(`discover ${r.status}`);
   return r.json();
@@ -157,11 +177,11 @@ export async function quickAddLead(body: { url: string; country?: string; compan
   return r.json();
 }
 
-export async function startPageDiscover(url: string, limit = 40): Promise<{ job_id: string }> {
+export async function startPageDiscover(url: string, limit = 40, screen: ScreenOpts = {}): Promise<{ job_id: string }> {
   const r = await fetch("/api/discover/page", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ url, limit }),
+    body: JSON.stringify({ url, limit, ...screen }),
   });
   if (!r.ok) throw new Error(`discover ${r.status}`);
   return r.json();
@@ -174,7 +194,7 @@ export async function fetchDiscoverJob(id: string): Promise<DiscoverJob> {
 }
 
 export async function importLeads(country: string, candidates: {
-  company_en: string; website: string; email: string | null;
+  company_en: string; website: string; email: string | null; country?: string;
   phone?: string | null; instagram?: string | null; facebook?: string | null; linkedin?: string | null;
   source?: string | null; icp_type?: string | null; fit_score?: number | null;
 }[]): Promise<{ imported: number; skipped: { company_en: string; website: string | null; duplicate_of: number }[] }> {

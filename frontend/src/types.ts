@@ -130,6 +130,9 @@ export interface Candidate {
   source?: string | null;
   icp_type?: string | null;
   fit_score?: number | null;
+  country?: string | null;
+  excluded?: boolean;
+  exclude_reason?: string | null;
   duplicate_of: number | null;
 }
 export interface InboxMessage {

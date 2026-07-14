@@ -57,3 +57,16 @@ cd backend && python -m uvicorn app.main:app --port 8000
 - 官网没留的联系方式抓不到（深挖只提取公开信息）。
 - WA/IG 自动私信违反平台 ToS，有封号风险；限速+批量上限只能降低、不能消除。
 - 多租户/登录/计费 = Phase 2，未开始。
+
+## 上线（公网访问）
+本系统必须跑在你自己的电脑上（WA/IG 发送依赖本机已登录的持久化浏览器，搬到云服务器会话全丢且封号风险高），
+"上线" = 把本机服务安全地暴露到公网。
+
+1. 设访问密码：在 `backend/auth_password.txt` 写一行密码（该文件已 gitignore，绝不进仓库）。
+   有密码文件 → 全部 `/api` 需登录；没有 → 本地免密模式（双击 start.bat 的用法不变）。
+2. 双击 `start_online.bat`：自动装 cloudflared → 起服务 → 建隧道，
+   窗口里出现的 `https://xxxx.trycloudflare.com` 就是公网网址，手机/同事浏览器打开输密码即可用。
+3. 关掉隧道窗口 = 下线；本地 http://127.0.0.1:8000 不受影响。
+
+免费隧道每次重启网址会变。想要固定网址需要一个自己的域名（Cloudflare 免费托管 + named tunnel）。
+安全：密码 HMAC 会话 Cookie（HttpOnly）、连错 5 次锁 1 分钟、页面本身无数据（数据全在需登录的 /api 下）。

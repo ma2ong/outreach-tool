@@ -5,7 +5,10 @@ import shutil
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
+
+from app import auth
 
 from app.main_deps import get_conn, DB_PATH  # re-exported for tests / dependency overrides
 from app.db import connect, init_schema
@@ -56,6 +59,20 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="Outreach Tool", lifespan=lifespan)
+
+# 公网保护：有密码文件才生效（本地免密用法不变）。SPA 页面本身可公开（无数据），
+# 数据和操作全在 /api 下，未登录一律 401，登录/状态接口除外。
+_AUTH_EXEMPT = ("/api/login", "/api/auth/status", "/api/logout")
+
+
+@app.middleware("http")
+async def require_auth(request, call_next):
+    path = request.url.path
+    if path.startswith("/api") and path not in _AUTH_EXEMPT and auth.enabled():
+        if not auth.verify_token(request.cookies.get(auth.COOKIE_NAME)):
+            return JSONResponse(status_code=401, content={"detail": "login required"})
+    return await call_next(request)
+
 app.include_router(leads_api.router)
 app.include_router(stats_api.router)
 app.include_router(send_api.router)
@@ -69,6 +86,8 @@ app.include_router(mailboxes_api.router)
 app.include_router(classify_api.router)
 app.include_router(products_api.router)
 app.include_router(inbox_api.router)
+from app.api import auth as auth_api  # noqa: E402
+app.include_router(auth_api.router)
 
 _DIST = os.path.join(os.path.dirname(__file__), "..", "..", "frontend", "dist")
 if os.path.isdir(_DIST):

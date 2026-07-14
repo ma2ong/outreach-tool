@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { fetchLead, fetchLeads, fetchLeadsPage, fetchStats, markReplied, fetchSequences, enrollLeads, startVerify, fetchVerifyJob, startClassify, fetchClassifyJob, fetchDuplicates, mergeDuplicates, fetchInboxUnread, quickAddLead } from "./api";
+import { fetchLead, fetchLeads, fetchLeadsPage, fetchStats, markReplied, fetchSequences, enrollLeads, startVerify, fetchVerifyJob, startClassify, fetchClassifyJob, fetchDuplicates, mergeDuplicates, fetchInboxUnread, quickAddLead, fetchAuthStatus, login } from "./api";
 import type { Lead, Stats, Sequence } from "./types";
 import { Dashboard } from "./components/Dashboard";
 import { LeadsTable } from "./components/LeadsTable";
@@ -38,6 +38,40 @@ function useTheme(): [string, () => void] {
   return [theme, () => setTheme((t) => (t === "dark" ? "light" : "dark"))];
 }
 
+function LoginGate({ onSuccess }: { onSuccess: () => void }) {
+  const [pw, setPw] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
+  async function submit() {
+    if (!pw) return;
+    setBusy(true); setErr("");
+    try { await login(pw); onSuccess(); }
+    catch (e) { setErr(String(e instanceof Error ? e.message : e)); }
+    finally { setBusy(false); }
+  }
+  return (
+    <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }}>
+      <div className="card" style={{ width: 340, textAlign: "center" }}>
+        <div className="brand" style={{ justifyContent: "center", marginBottom: 14 }}>
+          <span className="pixel-logo"><i /><i /><i /><i /></span>
+          <span>
+            <div className="brand-name">Maxcolor</div>
+            <div className="brand-sub">客户开发系统</div>
+          </span>
+        </div>
+        <input className="input" type="password" style={{ width: "100%", marginBottom: 10 }}
+          placeholder="访问密码" value={pw} autoFocus
+          onChange={(e) => setPw(e.target.value)}
+          onKeyDown={(e) => { if (e.key === "Enter") submit(); }} />
+        <button className="btn btn-primary" style={{ width: "100%" }} onClick={submit} disabled={busy}>
+          {busy ? "登录中…" : "登录"}
+        </button>
+        {err && <div className="error-text" style={{ marginTop: 10 }}>{err}</div>}
+      </div>
+    </div>
+  );
+}
+
 export function App() {
   const [page, setPage] = useState<Page>("leads");
   const [theme, toggleTheme] = useTheme();
@@ -59,6 +93,10 @@ export function App() {
   const [enrollMsg, setEnrollMsg] = useState("");
   const [err, setErr] = useState("");
   const [unread, setUnread] = useState(0);
+  const [authed, setAuthed] = useState<boolean | null>(null);
+  useEffect(() => {
+    fetchAuthStatus().then((s) => setAuthed(!s.enabled || s.authed)).catch(() => setAuthed(true));
+  }, []);
 
   const refreshUnread = () => fetchInboxUnread().then(setUnread).catch(() => {});
   useEffect(() => { refreshUnread(); }, []);
@@ -195,6 +233,10 @@ export function App() {
       setSelected(new Set(all.map((l) => l.no)));
     } catch (e) { setErr(String(e)); }
   }
+
+  if (authed === null) return null;
+  // 登录成功后整页刷新，让所有初始数据加载重跑一遍
+  if (!authed) return <LoginGate onSuccess={() => window.location.reload()} />;
 
   const title = PAGES.find((p) => p.id === page)!.label;
   return (

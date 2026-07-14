@@ -20,6 +20,10 @@ AV integrator LED screen contact`;
 const PRESET_QUERIES = ["LED signage company", "stage production LED screen rental",
   "church AV LED wall", "LED screen distributor", "digital billboard company"];
 
+// 低客单价/低转化市场，一键排除；中国/香港/台湾（同行）由"排除同行"开关单独管
+const EXCLUDABLE = ["India", "Pakistan", "Bangladesh", "Sri Lanka", "Nepal",
+  "Nigeria", "Kenya", "Ghana", "Myanmar", "Cambodia", "Vietnam", "Indonesia"];
+
 export function DiscoveryPanel({ onImported }: { onImported: () => void }) {
   const [mode, setMode] = useState<"search" | "page">("search");
   const [query, setQuery] = useState(DEFAULT_QUERIES);
@@ -29,6 +33,9 @@ export function DiscoveryPanel({ onImported }: { onImported: () => void }) {
   const [picked, setPicked] = useState<Set<string>>(new Set());
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState("");
+  const [excludePeers, setExcludePeers] = useState(true);
+  const [excluded, setExcluded] = useState<Set<string>>(new Set(["India", "Pakistan"]));
+  const [showExcluded, setShowExcluded] = useState(false);
 
   const queryLines = query.split("\n").map((l) => l.trim()).filter(Boolean);
 
@@ -39,18 +46,24 @@ export function DiscoveryPanel({ onImported }: { onImported: () => void }) {
     try {
       // 每行一条搜索；选了国家自动拼进关键词，结果按域名合并去重
       const composed = queryLines.map((l) => (country.trim() ? `${l} ${country.trim()}` : l));
-      const { job_id } = mode === "page" ? await startPageDiscover(url.trim(), 40) : await startDiscover(composed, 10);
+      const screen = { exclude_countries: [...excluded], exclude_peers: excludePeers };
+      const { job_id } = mode === "page"
+        ? await startPageDiscover(url.trim(), 40, screen)
+        : await startDiscover(composed, 10, screen);
       const poll = setInterval(async () => {
         const j = await fetchDiscoverJob(job_id);
         setMsg(`进度 ${j.done}/${j.total}`);
         if (j.status !== "running") {
           clearInterval(poll); setBusy(false);
           if (j.result && "candidates" in j.result) {
-            setCands(j.result.candidates);
-            setPicked(new Set(j.result.candidates
-              .filter((c) => !c.duplicate_of && (c.email || c.phone || c.instagram))
+            const all = j.result.candidates;
+            setCands(all);
+            // 被排除的（同行/目录站/排除国家）绝不自动勾选
+            setPicked(new Set(all
+              .filter((c) => !c.excluded && !c.duplicate_of && (c.email || c.phone || c.instagram))
               .map((c) => c.domain)));
-            setMsg(`找到 ${j.result.candidates.length} 个候选`);
+            const cut = all.filter((c) => c.excluded).length;
+            setMsg(`找到 ${all.length} 个候选${cut ? `，其中 ${cut} 家已筛掉（同行/目录站/排除国家）` : ""}`);
           } else if (j.result && "error" in j.result) {
             setMsg("失败：" + j.result.error);
           }
@@ -59,11 +72,17 @@ export function DiscoveryPanel({ onImported }: { onImported: () => void }) {
     } catch (e) { setBusy(false); setMsg("失败：" + String(e)); }
   }
 
+  const toggleExcluded = (c: string) => setExcluded((s) => {
+    const n = new Set(s); if (n.has(c)) { n.delete(c); } else { n.add(c); } return n;
+  });
+
   async function doImport() {
     const chosen = cands.filter((c) => picked.has(c.domain));
     if (chosen.length === 0) { setMsg("请先勾选要导入的候选"); return; }
     try {
       const res = await importLeads(country, chosen.map((c) => ({
+        // 探测到的国家更准（搜韩国也会混进别国公司）；"USA/Canada" 这类模糊值退回面板国家
+        country: c.country && !c.country.includes("/") ? c.country : undefined,
         company_en: c.title, website: c.domain, email: c.email,
         phone: c.phone, instagram: c.instagram, facebook: c.facebook, linkedin: c.linkedin,
         source: c.source, icp_type: c.icp_type, fit_score: c.fit_score,
@@ -130,19 +149,44 @@ export function DiscoveryPanel({ onImported }: { onImported: () => void }) {
           </div>
         </>
       )}
+      <div style={{ borderTop: "1px solid var(--border)", paddingTop: 10, marginBottom: 10 }}>
+        <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
+          <label style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 13, cursor: "pointer" }}
+            title="搜 LED 关键词会大量搜到中国 LED 厂（我们的同行）和 alibaba/tradekey 这类目录站，它们不是买家。开启后自动筛掉：+86 电话、.cn 域名、B2B 平台。">
+            <input type="checkbox" checked={excludePeers} onChange={(e) => setExcludePeers(e.target.checked)} />
+            排除同行/供应商（中国·港台 LED 厂 + B2B 目录站）
+          </label>
+        </div>
+        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center", marginTop: 6 }}>
+          <span className="muted" style={{ fontSize: 12 }}>再排除这些市场：</span>
+          {EXCLUDABLE.map((c) => (
+            <button key={c} className={`btn btn-sm${excluded.has(c) ? " btn-primary" : ""}`}
+              onClick={() => toggleExcluded(c)}>{excluded.has(c) ? "✓ " : ""}{c}</button>
+          ))}
+        </div>
+      </div>
       {msg && <div className="muted" style={{ marginBottom: 10 }}>{msg}</div>}
       {cands.length > 0 && (
         <>
+          {cands.some((c) => c.excluded) && (
+            <label className="muted" style={{ fontSize: 12, display: "flex", alignItems: "center", gap: 5, marginBottom: 6, cursor: "pointer" }}>
+              <input type="checkbox" checked={showExcluded} onChange={(e) => setShowExcluded(e.target.checked)} />
+              显示被筛掉的 {cands.filter((c) => c.excluded).length} 家（默认隐藏；显示后仍可手动勾选导入）
+            </label>
+          )}
           <div className="table-wrap">
             <table className="table">
               <thead><tr>
-                <th></th><th>网站</th><th>类型</th><th>邮箱</th><th>电话 / WhatsApp</th><th>IG</th><th>FB</th><th>状态</th>
+                <th></th><th>网站</th><th>国家</th><th>类型</th><th>邮箱</th><th>电话 / WhatsApp</th><th>IG</th><th>FB</th><th>状态</th>
               </tr></thead>
               <tbody>
-                {cands.map((c) => (
-                  <tr key={c.domain}>
+                {cands.filter((c) => showExcluded || !c.excluded).map((c) => (
+                  <tr key={c.domain} style={c.excluded ? { opacity: 0.5 } : undefined}>
                     <td><input type="checkbox" disabled={!!c.duplicate_of} checked={picked.has(c.domain)} onChange={() => toggle(c.domain)} /></td>
                     <td><a href={`https://${c.domain}`} target="_blank" rel="noreferrer">{c.domain}</a></td>
+                    <td>{c.excluded
+                      ? <span className="warn-text" title="被筛掉：不会自动勾选">🚫 {c.exclude_reason}</span>
+                      : c.country || dash}</td>
                     <td>{c.icp_type && c.icp_type !== "unknown"
                       ? <span title={`契合分 ${c.fit_score}`}>{ICP_LABEL[c.icp_type] ?? c.icp_type} <span className="muted">{c.fit_score}</span></span>
                       : dash}</td>

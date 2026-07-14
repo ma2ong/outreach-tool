@@ -2,6 +2,14 @@ import pytest
 from app.db import connect, init_schema
 
 
+@pytest.fixture(autouse=True)
+def _auth_disabled(tmp_path, monkeypatch):
+    """Tests run in local no-password mode; test_auth.py opts back in via its own paths."""
+    from app import auth
+    monkeypatch.setattr(auth, "PASSWORD_FILE", str(tmp_path / "no_pw.txt"))
+    monkeypatch.setattr(auth, "SESSION_KEY_FILE", str(tmp_path / ".session_key"))
+
+
 @pytest.fixture
 def conn(tmp_path):
     c = connect(str(tmp_path / "t.db"))
