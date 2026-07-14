@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { fetchMailboxes, createMailbox, setMailboxActive, deleteMailbox } from "../api";
+import { fetchMailboxes, createMailbox, setMailboxActive, deleteMailbox, testMailbox } from "../api";
 import type { Mailbox } from "../types";
 
 const BLANK = { email: "", smtp_host: "", port: 465, username: "", password: "", daily_cap: 40 };
@@ -18,6 +18,14 @@ export function MailboxPanel() {
       await createMailbox({ ...form, username: form.username || form.email });
       setForm({ ...BLANK }); setMsg("已添加发件邮箱"); reload();
     } catch (e) { setMsg("添加失败：" + String(e)); }
+  }
+
+  const [testing, setTesting] = useState<number | null>(null);
+  async function test(b: Mailbox) {
+    setTesting(b.id); setMsg(`正在登录 ${b.email} …`);
+    try { await testMailbox(b.id); setMsg(`✓ ${b.email} 登录成功，可以正常发信`); }
+    catch (e) { setMsg(`✗ ${b.email} ${String(e instanceof Error ? e.message : e)}`); }
+    finally { setTesting(null); }
   }
 
   const totalCap = boxes.filter((b) => b.active).reduce((s, b) => s + Math.max(0, b.daily_cap - b.sent_today), 0);
@@ -49,7 +57,13 @@ export function MailboxPanel() {
                     {b.active ? "启用中" : "已停用"}
                   </button>
                 </td>
-                <td><button className="btn btn-sm" onClick={() => deleteMailbox(b.id).then(reload)}>删除</button></td>
+                <td>
+                  <button className="btn btn-sm" style={{ marginRight: 6 }} disabled={testing === b.id} onClick={() => test(b)}
+                    title="只登录不发信：立刻验证 SMTP 服务器、端口、密码是否正确，避免群发到一半才发现配错">
+                    {testing === b.id ? "测试中…" : "测试"}
+                  </button>
+                  <button className="btn btn-sm" onClick={() => deleteMailbox(b.id).then(reload)}>删除</button>
+                </td>
               </tr>
             ))}
           </tbody>

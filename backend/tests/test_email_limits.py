@@ -74,3 +74,45 @@ def test_sequence_send_is_capped_too(conn):
     # deferred enrollments stay active so tomorrow's queue still has them
     still = {d["lead_no"] for d in sequences.due_queue(conn)}
     assert len(still) == 60 - outreach.MAX_BATCH
+
+
+def test_sequence_api_send_rotates_mailboxes(tmp_path, monkeypatch):
+    """Configuring mailboxes raises the daily budget to their sum. If the SEQUENCE send
+    path ignores rotation and keeps using the single fallback Gmail, that raised budget
+    gets blasted from ONE inbox — worse than not configuring mailboxes at all. This
+    drives the real API path, where the sender is chosen.
+    """
+    import app.api.sequences as seq_api
+    from app.api import send as send_api
+    from app import jobs
+
+    db = str(tmp_path / "t.db")
+    c = connect(db)
+    init_schema(c)
+    rows = ", ".join(f"({i}, 'Co{i}', 'c{i}@x.com')" for i in range(1, 5))
+    c.executescript(
+        f"INSERT INTO leads(no, company_en, email) VALUES {rows};"
+        "INSERT INTO mailboxes(email, smtp_host, port, username, password, daily_cap, active)"
+        " VALUES ('a@x.com','smtp',465,'a','p',5,1), ('b@x.com','smtp',465,'b','p',5,1);")
+    sid = sequences.create_sequence(c, "S", "email", [{"day_offset": 0, "body": "hi {name}"}])
+    sequences.enroll_leads(c, sid, [1, 2, 3, 4])
+    due_ids = [d["enrollment_id"] for d in sequences.due_queue(c)]
+    c.close()
+
+    used: list[str] = []
+    monkeypatch.setattr("app.channels.email_adapter.send_via",
+                        lambda mbx, to, subject, body, attachment: used.append(mbx["email"]))
+    monkeypatch.setattr(send_api, "SENDER",
+                        lambda *a, **k: pytest.fail("sequence send fell back to the single Gmail"))
+    monkeypatch.setattr(seq_api, "DB_PATH", db)
+    monkeypatch.setattr(sequence_send, "time", type("T", (), {"sleep": staticmethod(lambda s: None)}))
+
+    job = jobs.create(total=len(due_ids))
+    seq_api._run_send(job, due_ids, None)
+
+    assert jobs.get(job)["result"]["sent"] == 4
+    assert sorted(used) == ["a@x.com", "a@x.com", "b@x.com", "b@x.com"]  # rotated, not one inbox
+    # rotation usage is recorded, so tomorrow's budget is right
+    c = connect(db)
+    counts = {r["mailbox_id"]: r["count"] for r in c.execute("SELECT mailbox_id, count FROM mailbox_sends")}
+    assert sorted(counts.values()) == [2, 2]

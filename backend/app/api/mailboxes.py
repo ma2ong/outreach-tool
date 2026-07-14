@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
 from app import mailboxes as mb
+from app.channels import email_adapter
 from app.main_deps import get_conn
 
 router = APIRouter(prefix="/api/mailboxes")
@@ -34,6 +35,20 @@ def create_mailbox(req: MailboxCreate, conn=Depends(get_conn)):
     mid = mb.add_mailbox(conn, req.email.strip(), req.smtp_host.strip(), req.port,
                          (req.username or req.email).strip(), req.password, req.daily_cap)
     return next(m for m in mb.list_mailboxes(conn) if m["id"] == mid)
+
+
+@router.post("/{mid}/test")
+def test_mailbox(mid: int, conn=Depends(get_conn)):
+    """Log into this mailbox's SMTP without sending, so a wrong host/port/password is
+    caught here instead of silently failing halfway through a 30-email run."""
+    row = conn.execute("SELECT * FROM mailboxes WHERE id=?", (mid,)).fetchone()
+    if row is None:
+        raise HTTPException(status_code=404, detail="mailbox not found")
+    try:
+        email_adapter.test_mailbox(dict(row))
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(status_code=400, detail=f"登录失败：{exc}")
+    return {"ok": True}
 
 
 @router.patch("/{mid}")

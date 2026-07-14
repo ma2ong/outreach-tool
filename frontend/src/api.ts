@@ -375,6 +375,14 @@ export async function setMailboxActive(id: number, active: boolean): Promise<voi
   if (!r.ok) throw new Error(`mailbox ${r.status}`);
 }
 
+export async function testMailbox(id: number): Promise<void> {
+  const r = await fetch(`/api/mailboxes/${id}/test`, { method: "POST" });
+  if (!r.ok) {
+    const detail = (await r.json().catch(() => null))?.detail;
+    throw new Error(detail || `test ${r.status}`);
+  }
+}
+
 export async function deleteMailbox(id: number): Promise<void> {
   const r = await fetch(`/api/mailboxes/${id}`, { method: "DELETE" });
   if (!r.ok) throw new Error(`mailbox ${r.status}`);

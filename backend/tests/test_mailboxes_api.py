@@ -57,3 +57,30 @@ def test_email_send_rotates_across_mailboxes(tmp_path):
     assert job["status"] == "done"
     assert job["result"]["sent"] == 2 and job["result"]["deferred"] == 1
     assert set(used) == {"s1@x.com", "s2@x.com"}  # rotated across both
+
+
+def test_mailbox_test_endpoint_reports_bad_credentials(tmp_path, monkeypatch):
+    client, _ = _client(tmp_path)
+    client.post("/api/mailboxes", json={"email": "a@x.com", "smtp_host": "smtp.x.com",
+                                        "port": 465, "username": "a", "password": "wrong",
+                                        "daily_cap": 40})
+    from app.channels import email_adapter
+    monkeypatch.setattr(email_adapter, "test_mailbox",
+                        lambda mbx: (_ for _ in ()).throw(RuntimeError("535 auth failed")))
+    r = client.post("/api/mailboxes/1/test")
+    assert r.status_code == 400 and "535" in r.json()["detail"]
+
+
+def test_mailbox_test_endpoint_ok(tmp_path, monkeypatch):
+    client, _ = _client(tmp_path)
+    client.post("/api/mailboxes", json={"email": "a@x.com", "smtp_host": "smtp.x.com",
+                                        "port": 465, "username": "a", "password": "right",
+                                        "daily_cap": 40})
+    from app.channels import email_adapter
+    monkeypatch.setattr(email_adapter, "test_mailbox", lambda mbx: None)
+    assert client.post("/api/mailboxes/1/test").json() == {"ok": True}
+
+
+def test_mailbox_test_404(tmp_path):
+    client, _ = _client(tmp_path)
+    assert client.post("/api/mailboxes/999/test").status_code == 404

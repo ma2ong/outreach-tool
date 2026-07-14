@@ -1,5 +1,6 @@
 import os
 import smtplib
+import ssl
 from email import encoders
 from email.mime.base import MIMEBase
 from email.mime.multipart import MIMEMultipart
@@ -21,7 +22,11 @@ def build_message(sender: str, to: str, subject: str, body: str, attachment: str
     msg["From"] = sender
     msg["To"] = to
     msg.attach(MIMEText(body, "plain", "utf-8"))
-    if attachment and os.path.exists(attachment):
+    if attachment:
+        # Silently dropping a missing attachment is worse than failing: the copy says
+        # "I've attached a sheet of recent projects" and the customer sees nothing.
+        if not os.path.exists(attachment):
+            raise FileNotFoundError(f"附件不存在：{attachment}")
         with open(attachment, "rb") as f:
             part = MIMEBase("application", "octet-stream")
             part.set_payload(f.read())
@@ -31,27 +36,61 @@ def build_message(sender: str, to: str, subject: str, body: str, attachment: str
     return msg
 
 
-def send_email(to: str, subject: str, body: str, attachment: str | None = None) -> None:
+def default_mailbox() -> dict:
     pw = get_password()
     if not pw:
         raise RuntimeError("Gmail app password missing (~/.gmail_app_password or GMAIL_APP_PASSWORD)")
-    msg = build_message(GMAIL_USER, to, subject, body, attachment)
-    with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
-        server.login(GMAIL_USER, pw)
-        server.sendmail(GMAIL_USER, to, msg.as_bytes())
+    return {"email": GMAIL_USER, "smtp_host": "smtp.gmail.com", "port": 465,
+            "username": GMAIL_USER, "password": pw}
+
+
+def send_email(to: str, subject: str, body: str, attachment: str | None = None) -> None:
+    """Send from the fallback Gmail (used when no sender mailboxes are configured)."""
+    send_via(default_mailbox(), to, subject, body, attachment)
+
+
+STARTTLS_FALLBACK_PORT = 587
+
+
+def _open(host: str, port: int, user: str, password: str):
+    if port == 465:
+        server = smtplib.SMTP_SSL(host, port, timeout=20)
+    else:
+        server = smtplib.SMTP(host, port, timeout=20)
+        server.starttls()
+    server.login(user, password)
+    return server
+
+
+def _connect(mailbox: dict):
+    """SMTP connection, logged in.
+
+    Some networks (security software, corporate filters) break the TLS handshake on
+    465/SMTPS while STARTTLS on 587 goes through — measured on this machine, where 465
+    dies with SSLEOFError. Falling back keeps a whole campaign from failing silently.
+    """
+    host = mailbox["smtp_host"]
+    port = int(mailbox.get("port") or 465)
+    user = mailbox["username"]
+    password = mailbox["password"]
+    try:
+        return _open(host, port, user, password)
+    except (ssl.SSLError, OSError) as exc:
+        if port != 465 or isinstance(exc, smtplib.SMTPAuthenticationError):
+            raise
+        return _open(host, STARTTLS_FALLBACK_PORT, user, password)
 
 
 def send_via(mailbox: dict, to: str, subject: str, body: str, attachment: str | None = None) -> None:
-    """Send from a configured mailbox (rotation). Port 465 -> SSL, else STARTTLS."""
+    """Send from a configured mailbox (rotation)."""
     sender = mailbox["email"]
     msg = build_message(sender, to, subject, body, attachment)
-    host, port = mailbox["smtp_host"], int(mailbox.get("port", 465))
-    if port == 465:
-        with smtplib.SMTP_SSL(host, port) as server:
-            server.login(mailbox["username"], mailbox["password"])
-            server.sendmail(sender, to, msg.as_bytes())
-    else:
-        with smtplib.SMTP(host, port) as server:
-            server.starttls()
-            server.login(mailbox["username"], mailbox["password"])
-            server.sendmail(sender, to, msg.as_bytes())
+    with _connect(mailbox) as server:
+        server.sendmail(sender, to, msg.as_bytes())
+
+
+def test_mailbox(mailbox: dict) -> None:
+    """Log in without sending. Raises with the SMTP reason if host/port/password are wrong,
+    so a bad mailbox is caught at setup instead of halfway through a campaign."""
+    with _connect(mailbox):
+        pass

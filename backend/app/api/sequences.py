@@ -42,7 +42,7 @@ def _run_send(job_id: str, enrollment_ids: list[int], image: str | None):
     conn = connect(DB_PATH)
     try:
         result = sequence_send.send_due(
-            conn, enrollment_ids, sender=send_api.SENDER, engine=channels_api.ENGINE,
+            conn, enrollment_ids, sender=send_api.pick_sender(conn), engine=channels_api.ENGINE,
             image_default=image,
             on_progress=lambda done, total: jobs.update(job_id, done))
         jobs.finish(job_id, result)
@@ -61,7 +61,7 @@ def list_sequences(conn=Depends(get_conn)):
 def create_sequence(req: SequenceCreate, conn=Depends(get_conn)):
     if not req.name.strip():
         raise HTTPException(status_code=400, detail="name required")
-    if req.channel not in ("email", "whatsapp", "instagram"):
+    if req.channel not in ("email", "whatsapp", "instagram", "facebook"):
         raise HTTPException(status_code=400, detail="unsupported channel")
     if not req.steps or any(not s.body.strip() for s in req.steps):
         raise HTTPException(status_code=400, detail="each step needs a body")
