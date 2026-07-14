@@ -14,7 +14,7 @@ test.beforeEach(async ({ page }) => {
 test("shell loads with sidebar and leads table", async ({ page }) => {
   await page.goto("/");
   await expect(page.getByText("Maxcolor")).toBeVisible();
-  await expect(page.getByRole("button", { name: /客户库/ })).toBeVisible();
+  await expect(page.locator(".nav-item", { hasText: "客户库" })).toBeVisible();
   // leads page is default; table has at least one data row
   await expect(page.locator("table tbody tr").first()).toBeVisible();
   // full columns present
@@ -75,6 +75,13 @@ test("discovery has peer/country screening on by default", async ({ page }) => {
   await expect(page.getByRole("button", { name: "✓ India" })).toBeVisible();
   await expect(page.getByRole("button", { name: "✓ Pakistan" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Nigeria" })).toBeVisible();
+});
+
+// SAFETY: opens the health panel and reads it — never clicks 体检/一键处理 (would write DB).
+test("leads page has health check panel", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: /客户库体检/ }).click();
+  await expect(page.getByRole("button", { name: /开始体检/ })).toBeVisible();
 });
 
 // SAFETY: opens the quick-add panel and reads it — never clicks 添加入库.

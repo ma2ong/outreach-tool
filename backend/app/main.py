@@ -87,7 +87,9 @@ app.include_router(classify_api.router)
 app.include_router(products_api.router)
 app.include_router(inbox_api.router)
 from app.api import auth as auth_api  # noqa: E402
+from app.api import health as health_api  # noqa: E402
 app.include_router(auth_api.router)
+app.include_router(health_api.router)
 
 _DIST = os.path.join(os.path.dirname(__file__), "..", "..", "frontend", "dist")
 if os.path.isdir(_DIST):

@@ -115,6 +115,23 @@ def list_leads(conn, country=None, channel=None, status=None, search=None, has=N
     return [_lead_from_row(r, om.get(r["no"], [])) for r in rows]
 
 
+def advance_stage(conn, no: int, target: str) -> None:
+    """Keep the sales stage in step with reality so nobody has to maintain it by hand.
+
+    Only moves forward through new -> contacted -> replied, and never overrules a
+    stage Allen set himself (negotiating / won / lost stay put).
+    """
+    order = {"new": 0, "contacted": 1, "replied": 2}
+    row = conn.execute("SELECT stage FROM leads WHERE no=?", (no,)).fetchone()
+    if row is None:
+        return
+    current = row["stage"] or "new"
+    if current not in order or order.get(target, 0) <= order[current]:
+        return
+    conn.execute("UPDATE leads SET stage=? WHERE no=?", (target, no))
+    conn.commit()
+
+
 def mark_replied(conn, no: int, channel: str) -> None:
     conn.execute(
         "INSERT INTO outreach(lead_no, channel, status) VALUES (?, ?, 'replied')"
@@ -122,6 +139,7 @@ def mark_replied(conn, no: int, channel: str) -> None:
         (no, channel),
     )
     conn.commit()
+    advance_stage(conn, no, "replied")
     # A reply ends follow-up: stop any active sequence enrollments on this channel
     # so the due queue never chases someone who already answered.
     from app import sequences

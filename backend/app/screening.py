@@ -56,11 +56,16 @@ PEER_COUNTRIES = ("China", "Hong Kong", "Taiwan")
 
 
 def _country_from_phone(phone: str | None) -> str | None:
-    if not phone:
+    """Country from a phone number — ONLY if written in international form.
+
+    A local-format number carries no country: US toll-free '(866) 738-3580' starts
+    with 866 and would read as +86 China, wrongly screening out a real US customer.
+    So we require a leading + or 00, which every enriched number has.
+    """
+    raw = (phone or "").strip()
+    if not raw.startswith("+") and not raw.startswith("00"):
         return None
-    digits = "".join(ch for ch in phone if ch.isdigit())
-    # tolerate 00-prefixed international form (+008675... seen in real data)
-    digits = digits.removeprefix("00")
+    digits = "".join(ch for ch in raw if ch.isdigit()).removeprefix("00")
     for code in _CODES_BY_LEN:
         if digits.startswith(code):
             return _CALLING_CODES[code]

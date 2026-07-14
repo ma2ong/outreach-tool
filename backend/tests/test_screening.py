@@ -51,6 +51,14 @@ def test_unknown_country_never_excluded():
     assert r["country"] is None and not r["excluded"]
 
 
+def test_local_format_us_numbers_are_not_china():
+    """Regression: '(866) 738-3580' (US toll-free) and '865-...' (Tennessee) must not
+    read as +86 China — that would screen out real US customers."""
+    for local in ("(866) 738-3580", "866-335-4723", "865-210-8501", "1-800-555-0100"):
+        assert screening.detect_country({"phone": local}) is None, local
+        assert not screening.screen({"domain": "atd-av.com", "phone": local})["excluded"], local
+
+
 def test_usa_phone_not_confused_with_longer_codes():
     assert screening.detect_country({"phone": "+16162021473"}) == "USA/Canada"
     assert screening.detect_country({"phone": "+971529357710"}) == "UAE"

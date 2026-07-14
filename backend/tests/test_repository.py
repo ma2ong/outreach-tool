@@ -192,3 +192,29 @@ def test_stats_reach_counts_replied(conn):
     assert s.reach["email"]["replied"] == 1
     assert s.reach["email"]["messaged"] == 1  # replied still counts as touched
     assert s.funnel["replied"] == 1
+
+
+def test_stage_advances_on_reply(conn):
+    from app import repository as repo
+    repo.mark_replied(conn, 1, "email")
+    assert repo.get_lead(conn, 1).stage == "replied"
+
+
+def test_stage_advances_on_send(conn):
+    from app import outreach, repository as repo
+    outreach._mark_messaged(conn, 2, "2026-07-14")
+    assert repo.get_lead(conn, 2).stage == "contacted"
+
+
+def test_stage_never_moves_backwards(conn):
+    from app import outreach, repository as repo
+    repo.mark_replied(conn, 1, "email")
+    outreach._mark_messaged(conn, 1, "2026-07-14")  # a follow-up touch after a reply
+    assert repo.get_lead(conn, 1).stage == "replied"  # not demoted to contacted
+
+
+def test_manual_stage_is_not_overruled(conn):
+    from app import outreach, repository as repo
+    repo.update_lead(conn, 3, {"stage": "negotiating"})
+    outreach._mark_messaged(conn, 3, "2026-07-14")
+    assert repo.get_lead(conn, 3).stage == "negotiating"

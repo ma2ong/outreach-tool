@@ -12,3 +12,4 @@ backend/outreach_backup_*.db
 backend/quotes/
 backend/auth_password.txt
 backend/.session_key
+bin/

@@ -330,6 +330,28 @@ export async function fetchLead(no: number): Promise<Lead> {
   return r.json();
 }
 
+export interface HealthLead { no: number; company_en: string; website: string | null; country: string | null; reason?: string }
+
+export async function scanHealth(): Promise<{ issues: Record<string, HealthLead[]>; total: number }> {
+  const r = await fetch("/api/health/scan");
+  if (!r.ok) throw new Error(`health ${r.status}`);
+  return r.json();
+}
+
+export async function fixHealth(issues: string[]): Promise<Record<string, number>> {
+  const r = await fetch("/api/health/fix", {
+    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ issues }),
+  });
+  if (!r.ok) throw new Error(`health ${r.status}`);
+  return r.json();
+}
+
+export async function loadSeeds(): Promise<{ templates: number; sequence_id: number | null }> {
+  const r = await fetch("/api/seeds/load", { method: "POST" });
+  if (!r.ok) throw new Error(`seeds ${r.status}`);
+  return r.json();
+}
+
 export async function fetchMailboxes(): Promise<import("./types").Mailbox[]> {
   const r = await fetch("/api/mailboxes");
   if (!r.ok) throw new Error(`mailboxes ${r.status}`);

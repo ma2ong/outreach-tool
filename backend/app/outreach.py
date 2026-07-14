@@ -26,6 +26,7 @@ def eligible_leads(conn, lead_nos: list[int], channel: str) -> list[dict]:
 
 
 def _mark_messaged(conn, lead_no: int, date: str) -> None:
+    from app import repository
     conn.execute(
         "INSERT INTO outreach(lead_no, channel, status, touch_count, message_sent_date)"
         " VALUES (?, 'email', 'messaged', 1, ?)"
@@ -34,6 +35,7 @@ def _mark_messaged(conn, lead_no: int, date: str) -> None:
         (lead_no, date),
     )
     conn.commit()
+    repository.advance_stage(conn, lead_no, "contacted")
 
 
 def send_campaign(conn, lead_nos: list[int], subject: str, body: str,

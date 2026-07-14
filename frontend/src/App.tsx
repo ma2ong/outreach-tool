@@ -11,6 +11,7 @@ import { MailboxPanel } from "./components/MailboxPanel";
 import { ProductsPanel } from "./components/ProductsPanel";
 import { SequencesPanel } from "./components/SequencesPanel";
 import { InboxPanel } from "./components/InboxPanel";
+import { HealthPanel } from "./components/HealthPanel";
 
 type Page = "dashboard" | "leads" | "inbox" | "sequences" | "discovery" | "products" | "channels";
 
@@ -105,6 +106,7 @@ export function App() {
     try { setDetail(await fetchLead(no)); } catch (e) { setErr(String(e)); }
   }
 
+  const [healthOpen, setHealthOpen] = useState(false);
   const [quickOpen, setQuickOpen] = useState(false);
   const [quickUrl, setQuickUrl] = useState("");
   const [quickCountry, setQuickCountry] = useState("");
@@ -317,6 +319,10 @@ export function App() {
                   title="按网站/公司名找出重复客户；确认后合并（保留最早一条，补齐字段，不丢已回复状态）">
                   {dupPending !== null ? `⚠ 确认合并 ${dupPending} 条重复` : "⧉ 查重合并"}
                 </button>
+                <button className={`btn btn-sm${healthOpen ? " btn-primary" : ""}`} onClick={() => setHealthOpen(!healthOpen)}
+                  title="体检客户库：找出混进来的同行/B2B平台、没联系方式的空客户、抓错的公司名、阶段没跟上的客户">
+                  🩺 客户库体检
+                </button>
                 <button className={`btn btn-sm${quickOpen ? " btn-primary" : ""}`} onClick={() => setQuickOpen(!quickOpen)}
                   title="在 IG/FB/LinkedIn/官网看到客户，粘贴链接一键入库；官网会自动深挖邮箱/电话/社媒/分级">
                   ＋ 快速添加
@@ -330,6 +336,7 @@ export function App() {
                   <button className="btn btn-sm" onClick={() => setSelected(new Set())}>清空选择</button>
                 )}
               </div>
+              {healthOpen && <HealthPanel onFixed={reload} />}
               {quickOpen && (
                 <div className="card" style={{ marginBottom: 10, padding: 12 }}>
                   <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>

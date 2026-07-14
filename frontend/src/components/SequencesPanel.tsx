@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { fetchSequences, createSequence, fetchDue, sendDue, pollReplies, fetchJob } from "../api";
+import { fetchSequences, createSequence, fetchDue, sendDue, pollReplies, fetchJob, loadSeeds } from "../api";
 import type { Sequence, DueItem, SendJob } from "../types";
 
 const CH_LABEL: Record<string, string> = { email: "Email", whatsapp: "WhatsApp", instagram: "Instagram" };
@@ -60,6 +60,16 @@ export function SequencesPanel({ onChanged }: { onChanged?: () => void }) {
     } catch (e) { setMsg("发送失败：" + String(e)); setSending(false); }
   }
 
+  async function seed() {
+    try {
+      const r = await loadSeeds();
+      setMsg(r.templates === 0 && r.sequence_id === null
+        ? "现成话术已经载入过了"
+        : `已载入 ${r.templates} 条话术模板${r.sequence_id ? " + 1 个 3 步冷邮件跟进序列（第 0/3/8 天）" : ""}。序列在下方，模板在触达面板的下拉里选。`);
+      reload(); onChanged?.();
+    } catch (e) { setMsg("载入失败：" + String(e)); }
+  }
+
   async function poll() {
     try { const r = await pollReplies(); setMsg(`已拉取邮件：回复 ${r.replies} 封、退信 ${r.bounces} 封（邮箱已标无效）、退订 ${r.unsubscribes} 家（已停发）。回复正文在"收件箱"页查看。`); reload(); onChanged?.(); }
     catch (e) { setMsg("拉取回复失败（需配置 Gmail 授权码）：" + String(e)); }
@@ -71,6 +81,10 @@ export function SequencesPanel({ onChanged }: { onChanged?: () => void }) {
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
           <h3 style={{ margin: 0 }}>今日待发跟进（{due.length}）</h3>
           <div style={{ display: "flex", gap: 8 }}>
+            <button className="btn btn-sm" onClick={seed}
+              title="一键载入现成话术：英/西/葡三语首次触达邮件 + 跟进邮件 + WA/IG DM 模板，外加一个 3 步冷邮件跟进序列（第 0/3/8 天）。已存在的不会重复添加。">
+              ✨ 载入现成话术
+            </button>
             <button className="btn btn-sm" onClick={poll} title="从 Gmail 收件箱拉取回复，自动停掉已回复客户的后续跟进">↻ 拉取邮件回复</button>
             <button className="btn btn-green btn-sm" onClick={send} disabled={sending || due.length === 0}>
               {sending ? "发送中…" : `发送已选（${picked.size}）`}

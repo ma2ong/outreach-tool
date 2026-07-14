@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { startEmailSend, startChannelSend, fetchJob, fetchQuota, fetchTemplates, createTemplate } from "../api";
+import { startEmailSend, startChannelSend, fetchJob, fetchQuota, fetchTemplates, createTemplate, loadSeeds } from "../api";
 import type { SendJob, Template } from "../types";
 
 const DEFAULT_SUBJECT = "Recent LED Display Installations in Korea";
@@ -160,6 +160,16 @@ export function OutreachPanel({ selected, countries = [], firstCompany = "", onD
           <option value="">语言</option><option value="en">英语</option><option value="es">西语</option><option value="pt">葡语</option>
         </select>
         <button className="btn btn-sm" onClick={saveTemplate}>另存为模板</button>
+        {templates.length === 0 && (
+          <button className="btn btn-sm btn-primary" title="一键载入英/西/葡三语现成话术（首次触达+跟进+DM）"
+            onClick={async () => {
+              try {
+                const r = await loadSeeds();
+                setMsg(`已载入 ${r.templates} 条现成话术，在左边下拉里选`);
+                fetchTemplates(channel).then(setTemplates).catch(() => {});
+              } catch (e) { setMsg("载入失败：" + String(e)); }
+            }}>✨ 载入现成话术</button>
+        )}
       </div>
       {isEmail ? (
         <>
