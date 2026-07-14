@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
-import { fetchSequences, createSequence, fetchDue, sendDue, pollReplies, fetchJob, loadSeeds } from "../api";
+import { fetchSequences, createSequence, fetchDue, sendDue, pollReplies, fetchJob, loadSeeds, fetchQuota } from "../api";
 import type { Sequence, DueItem, SendJob } from "../types";
 
-const CH_LABEL: Record<string, string> = { email: "Email", whatsapp: "WhatsApp", instagram: "Instagram" };
+const CH_LABEL: Record<string, string> = { email: "Email", whatsapp: "WhatsApp", instagram: "Instagram", facebook: "Facebook" };
 
 type Step = { day_offset: number; subject: string; body: string };
 const BLANK_STEPS: Step[] = [
@@ -23,9 +23,28 @@ export function SequencesPanel({ onChanged }: { onChanged?: () => void }) {
   const [channel, setChannel] = useState("email");
   const [steps, setSteps] = useState<Step[]>(BLANK_STEPS);
 
+  const [quota, setQuota] = useState<Record<string, { sent_today: number; cap: number; batch?: number }>>({});
+
+  // 默认只勾选今天真能发出去的量：全选 266 条再点发，后端会截断，界面却让人以为都发了。
+  function pickWithinQuota(items: DueItem[], q: typeof quota): Set<number> {
+    const left: Record<string, number> = {};
+    const picked = new Set<number>();
+    for (const d of items) {
+      if (left[d.channel] === undefined) {
+        const qc = q[d.channel];
+        const remainingToday = qc ? Math.max(0, qc.cap - qc.sent_today) : 0;
+        left[d.channel] = Math.min(remainingToday, qc?.batch ?? 20);
+      }
+      if (left[d.channel] > 0) { picked.add(d.enrollment_id); left[d.channel] -= 1; }
+    }
+    return picked;
+  }
+
   function reload() {
     fetchSequences().then(setSeqs).catch((e) => setMsg(String(e)));
-    fetchDue().then((d) => { setDue(d); setPicked(new Set(d.map((x) => x.enrollment_id))); }).catch(() => {});
+    Promise.all([fetchDue(), fetchQuota()])
+      .then(([d, q]) => { setDue(d); setQuota(q); setPicked(pickWithinQuota(d, q)); })
+      .catch(() => {});
   }
   useEffect(reload, []);
 
@@ -92,6 +111,13 @@ export function SequencesPanel({ onChanged }: { onChanged?: () => void }) {
           </div>
         </div>
         {due.length === 0 && <div className="muted" style={{ marginTop: 8 }}>今天没有到期的跟进。把客户加入序列后，到期的那一步会出现在这里。</div>}
+        {due.length > picked.size && (
+          <div className="warn-text" style={{ marginTop: 8, fontSize: 13 }}>
+            队列里有 {due.length} 条，今天只勾了 {picked.size} 条——防封上限（邮件单次 {quota.email?.batch ?? 30} 封、
+            WA/IG 单次 20 条），剩下的明天继续，不会丢。硬发更多会被判垃圾/限号，得不偿失。
+            {quota.email && ` 今日邮件已发 ${quota.email.sent_today}/${quota.email.cap}。`}
+          </div>
+        )}
         {due.length > 0 && (
           <table className="lead-table" style={{ marginTop: 10 }}>
             <thead><tr><th style={{ width: 32 }}></th><th>客户</th><th>序列</th><th>第几步</th><th>话术预览</th></tr></thead>

@@ -48,7 +48,7 @@ export async function fetchCampaignStats(): Promise<{ campaigns: CampaignStat[];
   return r.json();
 }
 
-export async function fetchQuota(): Promise<Record<string, { sent_today: number; cap: number }>> {
+export async function fetchQuota(): Promise<Record<string, { sent_today: number; cap: number; batch?: number; mailboxes?: boolean }>> {
   const r = await fetch("/api/send/quota");
   if (!r.ok) throw new Error(`quota ${r.status}`);
   return r.json();

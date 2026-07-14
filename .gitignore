@@ -13,3 +13,6 @@ backend/quotes/
 backend/auth_password.txt
 backend/.session_key
 bin/
+.cf-token
+*.token
+cf-token*

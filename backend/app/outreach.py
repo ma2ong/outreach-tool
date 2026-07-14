@@ -6,6 +6,28 @@ from typing import Callable
 from app import campaigns
 from app.personalize import render
 
+# Email needs the same anti-ban discipline as WhatsApp/Instagram. A single Gmail that
+# suddenly sends hundreds of cold emails in a day lands in spam and can get limited —
+# which would waste every lead we found. Configure sender mailboxes to raise the
+# ceiling (their daily_cap values sum up); these numbers apply to the fallback Gmail.
+DAILY_CAP = 40
+MAX_BATCH = 30
+
+
+def sent_today(conn) -> int:
+    return conn.execute(
+        "SELECT COUNT(*) FROM outreach WHERE channel='email' AND status='messaged'"
+        " AND message_sent_date = date('now')").fetchone()[0]
+
+
+def remaining_today(conn) -> int:
+    """How many emails may still go out today: the mailboxes' remaining capacity if
+    rotation is configured, otherwise the single fallback Gmail's daily budget."""
+    from app import mailboxes
+    if mailboxes.has_active(conn):
+        return mailboxes.total_remaining(conn)
+    return max(0, DAILY_CAP - sent_today(conn))
+
 
 def eligible_leads(conn, lead_nos: list[int], channel: str) -> list[dict]:
     if not lead_nos:
@@ -47,8 +69,10 @@ def send_campaign(conn, lead_nos: list[int], subject: str, body: str,
     label = campaign or campaigns.default_label("email")
     all_targets = eligible_leads(conn, lead_nos, "email")
     total_selected = len(lead_nos)
-    # max_send caps a run to the sender mailboxes' remaining daily capacity (rotation).
-    targets = all_targets if max_send is None else all_targets[:max_send]
+    # Cap the run by today's remaining budget AND the per-run batch limit; the rest is
+    # deferred (still eligible tomorrow), never dropped.
+    budget = remaining_today(conn) if max_send is None else max_send
+    targets = all_targets[:min(budget, MAX_BATCH)]
     deferred = len(all_targets) - len(targets)
     sent = failed = 0
     errors: list[dict] = []

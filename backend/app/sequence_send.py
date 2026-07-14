@@ -34,14 +34,21 @@ def send_due(conn, enrollment_ids, *, sender=None, engine=None,
     sent = failed = deferred = 0
     errors: list[dict] = []
 
-    # Browser channels are capped per day and per batch; email is uncapped.
+    # Every channel is capped per day and per batch — email included (a 266-lead due
+    # queue sent in one go from one Gmail is a spam-folder event).
     remaining = {ch: max(0, co.DAILY_CAP[ch] - co.sent_today(conn, ch)) for ch in co.DAILY_CAP}
-    batch_used = {ch: 0 for ch in co.DAILY_CAP}
+    remaining["email"] = email_outreach.remaining_today(conn)
+    batch_used = {ch: 0 for ch in remaining}
+    max_batch = dict.fromkeys(co.DAILY_CAP, co.MAX_BATCH)
+    max_batch["email"] = email_outreach.MAX_BATCH
 
     total = len(items)
     for idx, d in enumerate(items, 1):
         ch, no = d["channel"], d["lead_no"]
         lead = _contact(conn, no)
+        if remaining.get(ch, 0) <= 0 or batch_used.get(ch, 0) >= max_batch.get(ch, 0):
+            deferred += 1
+            continue
         try:
             if ch == "email":
                 to = lead.get("email")
@@ -51,10 +58,9 @@ def send_due(conn, enrollment_ids, *, sender=None, engine=None,
                 sender(to, render(d.get("subject"), lead),
                        render(d["body"], lead), d.get("image") or image_default)
                 email_outreach._mark_messaged(conn, no, today)
+                remaining["email"] -= 1
+                batch_used["email"] += 1
             else:
-                if remaining.get(ch, 0) <= 0 or batch_used.get(ch, 0) >= co.MAX_BATCH:
-                    deferred += 1
-                    continue
                 target = co._target(ch, lead)
                 if not target:
                     deferred += 1

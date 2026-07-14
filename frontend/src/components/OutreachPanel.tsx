@@ -44,7 +44,7 @@ export function OutreachPanel({ selected, countries = [], firstCompany = "", onD
   const [job, setJob] = useState<SendJob | null>(null);
   const [msg, setMsg] = useState("");
   const [sending, setSending] = useState(false);
-  const [quota, setQuota] = useState<Record<string, { sent_today: number; cap: number }>>({});
+  const [quota, setQuota] = useState<Record<string, { sent_today: number; cap: number; batch?: number; mailboxes?: boolean }>>({});
   const [templates, setTemplates] = useState<Template[]>([]);
   const [tplName, setTplName] = useState("");
   const [attachment, setAttachment] = useState("");
@@ -55,9 +55,7 @@ export function OutreachPanel({ selected, countries = [], firstCompany = "", onD
     Number((b.lang || "en") === wantLang) - Number((a.lang || "en") === wantLang));
 
   const isEmail = channel === "email";
-  useEffect(() => {
-    if (!isEmail) fetchQuota().then(setQuota).catch(() => {});
-  }, [channel, sending, isEmail]);
+  useEffect(() => { fetchQuota().then(setQuota).catch(() => {}); }, [channel, sending]);
   useEffect(() => { fetchTemplates(channel).then(setTemplates).catch(() => {}); }, [channel]);
 
   function applyTemplate(id: string) {
@@ -174,6 +172,14 @@ export function OutreachPanel({ selected, countries = [], firstCompany = "", onD
       </div>
       {isEmail ? (
         <>
+          {quota.email && (
+            <div className="warn-text" style={{ marginBottom: 6 }}>
+              ⚠️ 单个邮箱一天灌几十封冷邮件会被判垃圾，账号还可能被限。已强制：单次最多 {quota.email.batch} 封、
+              每封间隔 16–28 秒。今日已发 {quota.email.sent_today}/{quota.email.cap}
+              {quota.email.sent_today >= quota.email.cap ? "，已到日上限，明天再发" : ""}。
+              {!quota.email.mailboxes && " 想发更多：在「渠道连接」页配几个发件邮箱，系统会自动轮换，上限按各箱之和累加。"}
+            </div>
+          )}
           <input className="input" style={{ width: "100%", marginBottom: 8 }} value={subject} onChange={(e) => setSubject(e.target.value)} />
           <textarea className="input" style={{ height: 150 }} value={body} onChange={(e) => setBody(e.target.value)} />
           {firstCompany && (

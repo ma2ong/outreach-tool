@@ -40,12 +40,10 @@ def _rotating_sender(conn):
 def _run(job_id: str, req: EmailSendRequest):
     conn = connect(DB_PATH)
     try:
-        rotate = mailboxes.has_active(conn)
-        sender = _rotating_sender(conn) if rotate else SENDER
-        max_send = mailboxes.total_remaining(conn) if rotate else None
+        sender = _rotating_sender(conn) if mailboxes.has_active(conn) else SENDER
         result = outreach.send_campaign(
             conn, req.lead_nos, req.subject, req.body, req.attachment,
-            sender=sender, delay_range=DELAY_RANGE, max_send=max_send,
+            sender=sender, delay_range=DELAY_RANGE,
             campaign=req.campaign,
             on_progress=lambda done, total: jobs.update(job_id, done))
         jobs.finish(job_id, result)
@@ -58,13 +56,11 @@ def _run(job_id: str, req: EmailSendRequest):
 @router.post("/email")
 def send_email_campaign(req: EmailSendRequest, background: BackgroundTasks, conn=Depends(get_conn)):
     eligible = outreach.eligible_leads(conn, req.lead_nos, "email")
-    resp = {"job_id": None, "eligible": len(eligible), "selected": len(req.lead_nos)}
-    if mailboxes.has_active(conn):
-        resp["will_send"] = min(len(eligible), mailboxes.total_remaining(conn))
-    job_id = jobs.create(total=resp.get("will_send", len(eligible)))
-    resp["job_id"] = job_id
+    will_send = min(len(eligible), outreach.remaining_today(conn), outreach.MAX_BATCH)
+    job_id = jobs.create(total=will_send)
     background.add_task(_run, job_id, req)
-    return resp
+    return {"job_id": job_id, "eligible": len(eligible), "selected": len(req.lead_nos),
+            "will_send": will_send}
 
 
 @router.get("/jobs/{job_id}")
@@ -103,8 +99,14 @@ def _run_channel(job_id: str, req: ChannelSendRequest):
 
 @router.get("/quota")
 def quota(conn=Depends(get_conn)):
-    return {c: {"sent_today": channel_outreach.sent_today(conn, c), "cap": cap}
-            for c, cap in channel_outreach.DAILY_CAP.items()}
+    q = {c: {"sent_today": channel_outreach.sent_today(conn, c), "cap": cap}
+         for c, cap in channel_outreach.DAILY_CAP.items()}
+    email_sent = outreach.sent_today(conn)
+    q["email"] = {"sent_today": email_sent,
+                  "cap": email_sent + outreach.remaining_today(conn),
+                  "batch": outreach.MAX_BATCH,
+                  "mailboxes": mailboxes.has_active(conn)}
+    return q
 
 
 @router.post("/channel")
