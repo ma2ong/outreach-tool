@@ -25,5 +25,5 @@ def fix(req: FixRequest, conn=Depends(get_conn)):
 @router.post("/seeds/load")
 def load_seeds(conn=Depends(get_conn)):
     templates = seeds.seed_templates(conn)
-    sequence_id = seeds.seed_sequence(conn)
-    return {"templates": templates, "sequence_id": sequence_id}
+    sequence_ids = seeds.seed_sequences(conn)
+    return {"templates": templates, "sequence_ids": sequence_ids}

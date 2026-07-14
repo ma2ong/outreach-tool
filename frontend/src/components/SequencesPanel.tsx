@@ -63,9 +63,9 @@ export function SequencesPanel({ onChanged }: { onChanged?: () => void }) {
   async function seed() {
     try {
       const r = await loadSeeds();
-      setMsg(r.templates === 0 && r.sequence_id === null
+      setMsg(r.templates === 0 && r.sequence_ids.length === 0
         ? "现成话术已经载入过了"
-        : `已载入 ${r.templates} 条话术模板${r.sequence_id ? " + 1 个 3 步冷邮件跟进序列（第 0/3/8 天）" : ""}。序列在下方，模板在触达面板的下拉里选。`);
+        : `已载入 ${r.templates} 条话术模板${r.sequence_ids.length ? ` + ${r.sequence_ids.length} 个 3 步冷邮件跟进序列（英/西/葡，第 0/3/8 天）` : ""}。序列在下方，模板在触达面板的下拉里选。`);
       reload(); onChanged?.();
     } catch (e) { setMsg("载入失败：" + String(e)); }
   }

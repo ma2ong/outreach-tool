@@ -1,13 +1,16 @@
 import os
 import queue
 import re
+import subprocess
 import threading
+import time
 import urllib.parse
 from pathlib import Path
 
 LOGIN_URLS = {
     "whatsapp": "https://web.whatsapp.com/",
     "instagram": "https://www.instagram.com/accounts/login/",
+    "facebook": "https://www.facebook.com/login/",
 }
 DATA_DIR = Path(os.environ.get("OUTREACH_BROWSER_DIR", str(Path.home() / ".outreach-tool" / "browser")))
 
@@ -15,6 +18,7 @@ DATA_DIR = Path(os.environ.get("OUTREACH_BROWSER_DIR", str(Path.home() / ".outre
 _CONNECTED = {
     "whatsapp": "#pane-side",
     "instagram": "svg[aria-label='Home'], a[href='/']",
+    "facebook": "div[role='navigation'], a[aria-label='Home'], a[href*='/me/']",
 }
 # selector for the login QR / code (whatsapp only)
 _QR = {
@@ -65,14 +69,54 @@ class PlaywrightEngine:
         return fut["result"]
 
     # ---- ops that run ON the worker thread ----
+    def _kill_stale_browser(self, prof: Path) -> int:
+        """Kill a leftover Playwright browser still holding this profile directory.
+
+        Killing the server (crash, taskkill, closing the window) does NOT kill the
+        chromium it launched; the orphan keeps the profile locked and every later
+        launch dies with exitCode=21 — which is exactly what "Instagram won't connect"
+        looked like. Chrome's renderer children quote the path (--user-data-dir="C:\\...")
+        while the parent doesn't, and they hold the lock too, so match the bare path.
+        Matching requires BOTH the profile path and the ms-playwright install dir,
+        so Allen's own Chrome is never touched.
+        """
+        if os.name != "nt":
+            return 0
+        ps = (
+            "Get-CimInstance Win32_Process -Filter \"Name='chrome.exe'\" | "
+            "Where-Object { $_.CommandLine -like '*" + str(prof) + "*' "
+            "-and $_.ExecutablePath -like '*ms-playwright*' } | "
+            "ForEach-Object { Stop-Process -Id $_.ProcessId -Force; $_.ProcessId }"
+        )
+        try:
+            out = subprocess.run(["powershell", "-NoProfile", "-Command", ps],
+                                 capture_output=True, text=True, timeout=25)
+        except Exception:  # noqa: BLE001
+            return 0
+        return len([line for line in out.stdout.split() if line.strip()])
+
+    def _launch(self, prof: Path):
+        args = ["--window-position=80,80", "--window-size=1100,820"]
+        try:
+            return self._p.chromium.launch_persistent_context(str(prof), headless=False, args=args)
+        except Exception:  # noqa: BLE001
+            if not self._kill_stale_browser(prof):
+                raise
+            time.sleep(2)
+            return self._p.chromium.launch_persistent_context(str(prof), headless=False, args=args)
+
     def _page(self, channel):
-        if channel not in self._ctx:
+        ctx = self._ctx.get(channel)
+        if ctx is not None:
+            try:  # a context whose window the user closed is dead — rebuild it
+                ctx.pages
+            except Exception:  # noqa: BLE001
+                self._ctx.pop(channel, None)
+                ctx = None
+        if ctx is None:
             prof = DATA_DIR / channel
             prof.mkdir(parents=True, exist_ok=True)
-            self._ctx[channel] = self._p.chromium.launch_persistent_context(
-                str(prof), headless=False,
-                args=["--window-position=80,80", "--window-size=1100,820"])
-        ctx = self._ctx[channel]
+            ctx = self._ctx[channel] = self._launch(prof)
         return ctx.pages[0] if ctx.pages else ctx.new_page()
 
     def _connect_op(self, channel):
@@ -139,6 +183,29 @@ class PlaywrightEngine:
             if image:
                 # DM thread keeps a hidden file input; selecting a photo sends it immediately
                 page.locator("input[type='file']").last.set_input_files(image)
+                page.wait_for_timeout(4000)
+            return True
+        if channel == "facebook":
+            # Page inbox lives on the page itself; the Message button opens the chat dock.
+            page.goto(f"https://www.facebook.com/{target}", wait_until="domcontentloaded", timeout=60000)
+            page.wait_for_timeout(2500)
+            btn = page.get_by_role("button", name=re.compile("^(message|发消息|发送消息|send message)$", re.I)).first
+            try:
+                btn.click(timeout=20000)
+            except Exception as exc:  # noqa: BLE001
+                raise RuntimeError("no Message button on this page (not a business page, or DMs off)") from exc
+            box = page.locator("div[contenteditable='true'][role='textbox'], div[aria-label*='Message'][contenteditable='true']").first
+            box.wait_for(state="visible", timeout=30000)
+            box.click()
+            page.wait_for_timeout(400)
+            page.keyboard.insert_text(message)
+            page.wait_for_timeout(800)
+            page.keyboard.press("Enter")
+            page.wait_for_timeout(2500)
+            if image:
+                page.locator("input[type='file']").last.set_input_files(image)
+                page.wait_for_timeout(2000)
+                page.keyboard.press("Enter")
                 page.wait_for_timeout(4000)
             return True
         raise ValueError(f"unsupported channel {channel}")

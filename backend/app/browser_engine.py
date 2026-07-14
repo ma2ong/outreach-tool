@@ -1,6 +1,6 @@
 from typing import Protocol
 
-CHANNELS = {"whatsapp", "instagram"}
+CHANNELS = {"whatsapp", "instagram", "facebook"}
 
 
 class BrowserEngine(Protocol):

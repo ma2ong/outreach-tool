@@ -117,3 +117,25 @@ def test_sent_today_counts_channel(conn):
     conn.commit()
     assert co.sent_today(conn, "whatsapp") == 1
     assert co.sent_today(conn, "instagram") == 0
+
+
+def test_facebook_eligible_and_send(conn):
+    from app import channel_outreach as co
+    from app.browser_engine import FakeEngine
+    conn.execute("UPDATE leads SET facebook='alphafb' WHERE no=1")
+    conn.execute("UPDATE leads SET facebook='gammafb' WHERE no=3")
+    conn.commit()
+    assert [l["no"] for l in co.eligible(conn, [1, 2, 3], "facebook")] == [1, 3]
+    engine = FakeEngine()
+    res = co.send_channel_campaign(conn, [1, 3], "facebook", "Hi {name}", engine,
+                                   delay_range=(0, 0), image="poster.jpg")
+    assert res["sent"] == 2
+    assert engine.sent[0] == ("facebook", "alphafb", "Hi Alpha AV", "poster.jpg")
+    # 阶段自动跟随
+    assert conn.execute("SELECT stage FROM leads WHERE no=1").fetchone()["stage"] == "contacted"
+
+
+def test_facebook_daily_cap_is_lower(conn):
+    from app import channel_outreach as co
+    assert co.DAILY_CAP["facebook"] == 20 < co.DAILY_CAP["whatsapp"]
+    assert co.DEFAULT_DELAY["facebook"][0] >= co.DEFAULT_DELAY["instagram"][0]

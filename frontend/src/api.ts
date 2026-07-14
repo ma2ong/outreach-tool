@@ -346,7 +346,7 @@ export async function fixHealth(issues: string[]): Promise<Record<string, number
   return r.json();
 }
 
-export async function loadSeeds(): Promise<{ templates: number; sequence_id: number | null }> {
+export async function loadSeeds(): Promise<{ templates: number; sequence_ids: number[] }> {
   const r = await fetch("/api/seeds/load", { method: "POST" });
   if (!r.ok) throw new Error(`seeds ${r.status}`);
   return r.json();
@@ -388,7 +388,10 @@ export async function fetchChannels(): Promise<Record<string, string>> {
 
 export async function connectChannel(ch: string): Promise<void> {
   const r = await fetch(`/api/channels/${ch}/connect`, { method: "POST" });
-  if (!r.ok) throw new Error(`connect ${r.status}`);
+  if (!r.ok) {
+    const detail = (await r.json().catch(() => null))?.detail;
+    throw new Error(detail || `connect ${r.status}`);
+  }
 }
 
 export async function channelStatus(ch: string): Promise<string> {

@@ -100,7 +100,7 @@ export function OutreachPanel({ selected, countries = [], firstCompany = "", onD
     } catch (e) { setMsg("发送失败：" + String(e)); setSending(false); }
   }
 
-  const CH_NAME: Record<string, string> = { email: "Email", whatsapp: "WhatsApp", instagram: "Instagram" };
+  const CH_NAME: Record<string, string> = { email: "Email", whatsapp: "WhatsApp", instagram: "Instagram", facebook: "Facebook" };
   const [allJobs, setAllJobs] = useState<{ ch: string; job: SendJob | null; note: string }[]>([]);
 
   async function sendAll() {
@@ -115,7 +115,7 @@ export function OutreachPanel({ selected, countries = [], firstCompany = "", onD
         ...(att ? { attachment: att } : {}), ...(camp ? { campaign: camp } : {}) });
       started.push({ ch: "email", job_id: e.job_id, note: `符合 ${e.eligible} 家` });
     } catch (e) { started.push({ ch: "email", job_id: "", note: "启动失败：" + String(e) }); }
-    for (const ch of ["whatsapp", "instagram"]) {
+    for (const ch of ["whatsapp", "instagram", "facebook"]) {
       try {
         const s = await startChannelSend(ch, selected, dm, att, camp);
         started.push({ ch, job_id: s.job_id, note: `符合 ${s.eligible} 家，本批发 ${s.will_send} 家` });
@@ -143,6 +143,7 @@ export function OutreachPanel({ selected, countries = [], firstCompany = "", onD
           <option value="email">Email</option>
           <option value="whatsapp">WhatsApp</option>
           <option value="instagram">Instagram</option>
+          <option value="facebook">Facebook</option>
         </select>
       </div>
       <div style={{ display: "flex", gap: 8, marginBottom: 8, flexWrap: "wrap", alignItems: "center" }}>
@@ -187,7 +188,8 @@ export function OutreachPanel({ selected, countries = [], firstCompany = "", onD
       ) : (
         <>
           <div className="warn-text" style={{ marginBottom: 6 }}>
-            ⚠️ {channel === "whatsapp" ? "WhatsApp" : "Instagram"} 自动私信有平台限制，已强制限速（每条间隔 1-4 分钟），单批上限 20 条。每条消息自动附带案例图。请先在「渠道连接」里确认已连接。
+            ⚠️ {CH_NAME[channel]} 自动私信有平台限制，已强制限速（每条间隔 1–5 分钟），单批上限 20 条。每条消息自动附带案例图。请先在「渠道连接」里确认已连接。
+            {channel === "facebook" && " Facebook 对冷私信的封号最狠，日上限压到 20 条、间隔最长；只对开了私信的商家主页有效。"}
             {quota[channel] && ` 今日已发 ${quota[channel].sent_today}/${quota[channel].cap}${quota[channel].sent_today >= quota[channel].cap ? "，已到日上限，明天再发" : ""}`}
           </div>
           <textarea className="input" style={{ height: 100 }} value={dm} onChange={(e) => setDm(e.target.value)} />
@@ -209,8 +211,8 @@ export function OutreachPanel({ selected, countries = [], firstCompany = "", onD
           {sending ? "发送中…" : isEmail ? "发送邮件" : `发送 ${channel === "whatsapp" ? "WhatsApp" : "Instagram"} 私信`}
         </button>
         <button className="btn" onClick={sendAll} disabled={sending}
-          title="用当前话术同时发起 Email + WhatsApp + Instagram 三路发送：邮件用上面的邮件话术，WA/IG 用 DM 话术并自动带案例图。各渠道分别按「有该渠道联系方式且未发过」过滤，WA/IG 守单批 20/日限 40。FB 私信自动化封号风险极高，暂不支持。">
-          🚀 一键全渠道（Email+WA+IG）
+          title="用当前话术同时发起四路发送：邮件用上面的邮件话术，WA/IG/FB 用 DM 话术并自动带案例图。各渠道分别按「有该渠道联系方式且未发过」过滤，各守自己的单批 20 条和日上限（WA/IG 40、FB 20）。">
+          🚀 一键全渠道（Email+WA+IG+FB）
         </button>
         {job && <span className="muted">进度 {job.done}/{job.total}
           {job.status === "done" && job.result && "sent" in job.result &&

@@ -38,23 +38,30 @@ def test_fix_endpoint_suppresses(tmp_path):
     assert "peer" not in client.get("/api/health/scan").json()["issues"]
 
 
-def test_seed_loads_templates_and_sequence(tmp_path):
+def test_seed_loads_templates_and_sequences(tmp_path):
     client, _ = _client(tmp_path)
     r = client.post("/api/seeds/load").json()
-    assert r["templates"] > 0 and r["sequence_id"] is not None
+    assert r["templates"] > 0 and len(r["sequence_ids"]) == 3  # EN / ES / PT
     email_tpls = client.get("/api/templates?channel=email").json()
     assert any("首次触达" in t["name"] for t in email_tpls)
     assert {t["lang"] for t in email_tpls} >= {"en", "es", "pt"}
     wa = client.get("/api/templates?channel=whatsapp").json()
     assert wa and "Shenzhen" in wa[0]["body"] and "Maxcolor" not in wa[0]["body"]  # DM 规矩：不提公司名
     seqs = client.get("/api/sequences").json()
-    assert len(seqs[0]["steps"]) == 3
-    assert [s["day_offset"] for s in seqs[0]["steps"]] == [0, 3, 8]
+    assert len(seqs) == 3
+    for s in seqs:
+        assert [st["day_offset"] for st in s["steps"]] == [0, 3, 8]
+    # each language sequence must actually be in that language, not English copy-paste
+    es = next(s for s in seqs if "西语" in s["name"])
+    pt = next(s for s in seqs if "葡语" in s["name"])
+    assert "Hola" in es["steps"][0]["body"] and "pregunta" in es["steps"][1]["subject"]
+    assert "Olá" in pt["steps"][0]["body"] and "pergunta" in pt["steps"][1]["subject"]
 
 
 def test_seed_is_idempotent(tmp_path):
     client, _ = _client(tmp_path)
     first = client.post("/api/seeds/load").json()
     second = client.post("/api/seeds/load").json()
-    assert second["templates"] == 0 and second["sequence_id"] is None
+    assert second["templates"] == 0 and second["sequence_ids"] == []
     assert len(client.get("/api/templates").json()) == first["templates"]
+    assert len(client.get("/api/sequences").json()) == 3

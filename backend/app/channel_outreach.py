@@ -8,13 +8,14 @@ from app import campaigns
 from app.personalize import render
 
 # per-channel: which lead column holds the contact target
-_CONTACT_COL = {"whatsapp": "phone", "instagram": "instagram"}
-# default rate limits (seconds) — browser channels must go slow to avoid bans
-DEFAULT_DELAY = {"whatsapp": (60, 90), "instagram": (120, 240)}
+_CONTACT_COL = {"whatsapp": "phone", "instagram": "instagram", "facebook": "facebook"}
+# default rate limits (seconds) — browser channels must go slow to avoid bans.
+# Facebook is the most aggressive at banning cold DMs, so it goes slowest.
+DEFAULT_DELAY = {"whatsapp": (60, 90), "instagram": (120, 240), "facebook": (150, 300)}
 # hard cap per run — exceeding ~20 got the WhatsApp account rate-limited (2026-05-15)
 MAX_BATCH = 20
-# per-channel daily cap (2 batches/day)
-DAILY_CAP = {"whatsapp": 40, "instagram": 40}
+# per-channel daily cap (2 batches/day; FB lower — highest ban risk of the three)
+DAILY_CAP = {"whatsapp": 40, "instagram": 40, "facebook": 20}
 
 
 def sent_today(conn, channel: str) -> int:
@@ -38,7 +39,8 @@ def eligible(conn, lead_nos: list[int], channel: str) -> list[dict]:
     col = _CONTACT_COL[channel]
     placeholders = ",".join("?" * len(lead_nos))
     rows = conn.execute(
-        f"""SELECT l.no, l.company_en, l.contact_name, l.country, l.city, l.phone, l.instagram
+        f"""SELECT l.no, l.company_en, l.contact_name, l.country, l.city,
+                   l.phone, l.instagram, l.facebook
             FROM leads l
             WHERE l.no IN ({placeholders})
               AND l.{col} IS NOT NULL AND l.{col} != ''

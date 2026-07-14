@@ -109,7 +109,7 @@ def quota(conn=Depends(get_conn)):
 
 @router.post("/channel")
 def send_channel(req: ChannelSendRequest, background: BackgroundTasks, conn=Depends(get_conn)):
-    if req.channel not in ("whatsapp", "instagram"):
+    if req.channel not in ("whatsapp", "instagram", "facebook"):
         raise HTTPException(status_code=400, detail="unsupported channel")
     if req.image and not Path(req.image).is_file():
         raise HTTPException(status_code=400, detail=f"image not found: {req.image}")

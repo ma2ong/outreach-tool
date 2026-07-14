@@ -69,6 +69,42 @@ Last note from me — I don't want to clutter your inbox.
 If LED displays aren't on your radar, no problem at all. If they come up later, my details are below and I'll send pricing the same day you ask.
 
 {SIGNOFF}"""),
+    ("跟进2：案例+提问（西语）", "es", "Re: Pantallas LED — una pregunta rápida",
+     f"""Hola {{contact}}:
+
+Le escribo de nuevo sobre los paneles LED para {{name}}.
+
+Una pregunta rápida para no hacerle perder tiempo: ¿está cotizando para un proyecto concreto ahora mismo, o busca tener un proveedor a mano para cuando surja? Cualquiera de las dos respuestas me sirve — le enviaré solo lo que realmente le convenga.
+
+Si prefiere no recibir estos correos, responda "unsubscribe" y no volveré a escribirle.
+
+{SIGNOFF}"""),
+    ("跟进3：最后一封（西语）", "es", "Re: Pantallas LED — cierro el tema",
+     f"""Hola {{contact}}:
+
+Este es mi último correo, no quiero llenarle la bandeja de entrada.
+
+Si las pantallas LED no están entre sus prioridades ahora, no hay problema. Si surge algo más adelante, aquí abajo están mis datos y le envío precios el mismo día que me escriba.
+
+{SIGNOFF}"""),
+    ("跟进2：案例+提问（葡语）", "pt", "Re: Painéis LED — uma pergunta rápida",
+     f"""Olá {{contact}},
+
+Retomando o assunto dos painéis LED para a {{name}}.
+
+Uma pergunta rápida para não tomar seu tempo: você está cotando para um projeto específico agora, ou quer manter um fornecedor à mão para quando surgir? Qualquer resposta me ajuda — envio só o que realmente faz sentido.
+
+Se preferir não receber estes e-mails, responda "unsubscribe" e não entrarei mais em contato.
+
+{SIGNOFF}"""),
+    ("跟进3：最后一封（葡语）", "pt", "Re: Painéis LED — encerrando o assunto",
+     f"""Olá {{contact}},
+
+Este é meu último e-mail, não quero lotar sua caixa de entrada.
+
+Se painéis LED não estão na sua pauta agora, sem problema. Se aparecer algo mais à frente, meus contatos estão abaixo e envio preços no mesmo dia em que você pedir.
+
+{SIGNOFF}"""),
 ]
 
 # DM 规矩：不提公司名、只说 from Shenzhen China、必带案例图（发送端自动附图）
@@ -83,16 +119,33 @@ DM_TEMPLATES = [
      "Hi {name}, following up on my last message. Are you working on an LED display project right now, or should I check back later? Either way, happy to send specs and pricing whenever it's useful."),
 ]
 
-# 冷邮件的回复几乎都在第 2–4 触，所以默认序列是 3 步：第 0 / 3 / 8 天。
-EMAIL_SEQUENCE = {
-    "name": "冷邮件 3 步跟进（英语）",
-    "channel": "email",
-    "steps": [
-        {"day_offset": 0, "subject": EMAIL_TEMPLATES[0][2], "body": EMAIL_TEMPLATES[0][3]},
-        {"day_offset": 3, "subject": EMAIL_TEMPLATES[3][2], "body": EMAIL_TEMPLATES[3][3]},
-        {"day_offset": 8, "subject": EMAIL_TEMPLATES[4][2], "body": EMAIL_TEMPLATES[4][3]},
-    ],
-}
+def _by_lang(lang: str) -> dict[str, tuple[str, str]]:
+    """{step_key: (subject, body)} for one language, keyed off the template names."""
+    out = {}
+    for name, tpl_lang, subject, body in EMAIL_TEMPLATES:
+        if tpl_lang != lang:
+            continue
+        key = "first" if name.startswith("首次") else "f2" if name.startswith("跟进2") else "f3"
+        out[key] = (subject, body)
+    return out
+
+
+# 冷邮件的回复几乎都在第 2–4 触，所以每个序列都是 3 步：第 0 / 3 / 8 天。
+# 一语一序列：西语国家用英语话术回复率腰斩，所以不共用一个序列。
+SEQUENCE_LANGS = [("en", "英语"), ("es", "西语"), ("pt", "葡语")]
+
+EMAIL_SEQUENCES = [
+    {
+        "name": f"冷邮件 3 步跟进（{label}）",
+        "channel": "email",
+        "steps": [
+            {"day_offset": 0, "subject": _by_lang(lang)["first"][0], "body": _by_lang(lang)["first"][1]},
+            {"day_offset": 3, "subject": _by_lang(lang)["f2"][0], "body": _by_lang(lang)["f2"][1]},
+            {"day_offset": 8, "subject": _by_lang(lang)["f3"][0], "body": _by_lang(lang)["f3"][1]},
+        ],
+    }
+    for lang, label in SEQUENCE_LANGS
+]
 
 
 def seed_templates(conn) -> int:
@@ -113,11 +166,12 @@ def seed_templates(conn) -> int:
     return added
 
 
-def seed_sequence(conn) -> int | None:
-    """Add the 3-step cold-email follow-up sequence if it isn't there yet."""
+def seed_sequences(conn) -> list[int]:
+    """Add the 3-step cold-email sequences (EN/ES/PT); skips ones already there."""
     from app import sequences
-    row = conn.execute("SELECT id FROM sequences WHERE name=?", (EMAIL_SEQUENCE["name"],)).fetchone()
-    if row:
-        return None
-    return sequences.create_sequence(conn, EMAIL_SEQUENCE["name"], EMAIL_SEQUENCE["channel"],
-                                     EMAIL_SEQUENCE["steps"])
+    added = []
+    for seq in EMAIL_SEQUENCES:
+        if conn.execute("SELECT 1 FROM sequences WHERE name=?", (seq["name"],)).fetchone():
+            continue
+        added.append(sequences.create_sequence(conn, seq["name"], seq["channel"], seq["steps"]))
+    return added

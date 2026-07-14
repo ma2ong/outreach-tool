@@ -21,7 +21,13 @@ def list_channels():
 @router.post("/{channel}/connect")
 def connect(channel: str):
     _check(channel)
-    ENGINE.connect(channel)
+    try:
+        ENGINE.connect(channel)
+    except Exception as exc:  # noqa: BLE001 — a raw 500 told Allen nothing
+        raise HTTPException(
+            status_code=502,
+            detail=f"浏览器启动失败：{exc}。多半是上次的浏览器窗口还占着登录数据；"
+                   f"系统已尝试自动清理并重试。若仍失败，关掉所有自动化浏览器窗口后再点一次连接。")
     return {"status": ENGINE.status(channel)}
 
 
