@@ -24,13 +24,15 @@ const DM_BODY = `Hi {name}, this is Allen from an LED display factory in Shenzhe
 const ES_COUNTRIES = new Set(["Mexico", "Chile", "Argentina", "Colombia", "Peru", "Spain", "Ecuador",
   "Venezuela", "Guatemala", "Bolivia", "Uruguay", "Paraguay", "Costa Rica", "Panama", "Dominican Republic"]);
 const PT_COUNTRIES = new Set(["Brazil", "Portugal"]);
-const LANG_NAME: Record<string, string> = { es: "西语", pt: "葡语", en: "英语" };
+const KO_COUNTRIES = new Set(["Korea", "South Korea"]);
+const LANG_NAME: Record<string, string> = { es: "西语", pt: "葡语", ko: "韩语", en: "英语" };
 
 function recommendLang(countries: string[]): string {
-  const n = { es: 0, pt: 0, en: 0 };
+  const n = { es: 0, pt: 0, ko: 0, en: 0 };
   for (const c of countries) {
     if (ES_COUNTRIES.has(c)) n.es++;
     else if (PT_COUNTRIES.has(c)) n.pt++;
+    else if (KO_COUNTRIES.has(c)) n.ko++;
     else n.en++;
   }
   return (Object.entries(n).sort((a, b) => b[1] - a[1])[0]?.[0]) || "en";
@@ -156,7 +158,7 @@ export function OutreachPanel({ selected, countries = [], firstCompany = "", onD
         {wantLang !== "en" && <span className="muted" style={{ fontSize: 12 }}>已选客户多为{LANG_NAME[wantLang]}市场，推荐用{LANG_NAME[wantLang]}模板</span>}
         <input className="input" style={{ width: 140 }} placeholder="模板名" value={tplName} onChange={(e) => setTplName(e.target.value)} />
         <select className="input" value={tplLang} onChange={(e) => setTplLang(e.target.value)} title="模板语言，用于按客户国家推荐">
-          <option value="">语言</option><option value="en">英语</option><option value="es">西语</option><option value="pt">葡语</option>
+          <option value="">语言</option><option value="en">英语</option><option value="es">西语</option><option value="pt">葡语</option><option value="ko">韩语</option>
         </select>
         <button className="btn btn-sm" onClick={saveTemplate}>另存为模板</button>
         {templates.length === 0 && (

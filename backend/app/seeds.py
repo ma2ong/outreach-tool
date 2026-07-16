@@ -105,6 +105,36 @@ Este é meu último e-mail, não quero lotar sua caixa de entrada.
 Se painéis LED não estão na sua pauta agora, sem problema. Se aparecer algo mais à frente, meus contatos estão abaixo e envio preços no mesmo dia em que você pedir.
 
 {SIGNOFF}"""),
+    ("首次触达（韩语）", "ko", "LED 디스플레이 패널 — 심천 공장 직거래",
+     f"""안녕하세요 {{contact}}님,
+
+저는 중국 심천의 LED 디스플레이 제조 공장에서 근무하는 Allen이라고 합니다.
+
+{{name}}의 LED 디스플레이 관련 업무를 보고 연락드립니다. 저희는 P0.7–P10 실내외 LED 패널을 공장 직거래 가격으로 공급하고 있으며, 최근 프로젝트 자료를 첨부해 드립니다.
+
+진행 중이거나 예정된 LED 디스플레이 건이 있으시면, 크기·시청 거리·픽셀 피치·실내외 용도에 맞춰 적합한 사양을 추천해 드리겠습니다.
+
+이 메일 수신을 원치 않으시면 "unsubscribe"라고 회신해 주시면 더 이상 연락드리지 않겠습니다.
+
+{SIGNOFF}"""),
+    ("跟进2：案例+提问（韩语）", "ko", "Re: LED 디스플레이 패널 — 간단한 문의",
+     f"""안녕하세요 {{contact}}님,
+
+{{name}} 관련 LED 패널 건으로 다시 연락드립니다.
+
+시간을 뺏지 않도록 간단히 여쭙겠습니다. 지금 특정 프로젝트를 위해 공급처를 찾고 계신가요, 아니면 필요할 때를 대비해 거래처를 확보해 두시려는 건가요? 어느 쪽이든 알려주시면 실제로 도움이 될 만한 자료만 보내드리겠습니다.
+
+이 메일 수신을 원치 않으시면 "unsubscribe"라고 회신해 주십시오.
+
+{SIGNOFF}"""),
+    ("跟进3：最后一封（韩语）", "ko", "Re: LED 디스플레이 패널 — 마지막 안내",
+     f"""안녕하세요 {{contact}}님,
+
+받은 편지함을 어지럽히고 싶지 않아 이번이 마지막 메일입니다.
+
+지금 LED 디스플레이가 검토 대상이 아니시라면 전혀 괜찮습니다. 추후 필요하시면 아래 연락처로 문의해 주시면, 요청하신 당일에 견적을 보내드리겠습니다.
+
+{SIGNOFF}"""),
 ]
 
 # DM 规矩：不提公司名、只说 from Shenzhen China、必带案例图（发送端自动附图）
@@ -115,6 +145,8 @@ DM_TEMPLATES = [
      "Hola {name}, soy Allen, de una fábrica de pantallas LED en Shenzhen, China. Fabricamos paneles LED P0.7–P10 para interior y exterior a precio directo de fábrica. Con gusto le comparto referencias de proyectos recientes si tienen algún proyecto de pantalla LED."),
     ("DM 首次触达（葡语）", "pt",
      "Olá {name}, sou o Allen, de uma fábrica de painéis LED em Shenzhen, China. Fornecemos painéis LED P0.7–P10 para interior e exterior a preço direto de fábrica. Posso enviar referências de projetos recentes se tiver alguma necessidade de painel LED."),
+    ("DM 首次触达（韩语）", "ko",
+     "안녕하세요 {name}님, 저는 중국 심천의 LED 디스플레이 공장에서 근무하는 Allen입니다. P0.7–P10 실내외 LED 패널을 공장 직거래 가격으로 공급하고 있습니다. 예정된 LED 디스플레이 건이 있으시면 최근 프로젝트 자료를 기꺼이 공유해 드리겠습니다."),
     ("DM 跟进（英语）", "en",
      "Hi {name}, following up on my last message. Are you working on an LED display project right now, or should I check back later? Either way, happy to send specs and pricing whenever it's useful."),
 ]
@@ -132,7 +164,7 @@ def _by_lang(lang: str) -> dict[str, tuple[str, str]]:
 
 # 冷邮件的回复几乎都在第 2–4 触，所以每个序列都是 3 步：第 0 / 3 / 8 天。
 # 一语一序列：西语国家用英语话术回复率腰斩，所以不共用一个序列。
-SEQUENCE_LANGS = [("en", "英语"), ("es", "西语"), ("pt", "葡语")]
+SEQUENCE_LANGS = [("en", "英语"), ("es", "西语"), ("pt", "葡语"), ("ko", "韩语")]
 
 EMAIL_SEQUENCES = [
     {
