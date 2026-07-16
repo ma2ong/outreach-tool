@@ -105,15 +105,49 @@ def _store(conn, lead_no: int, kind: str, m: dict) -> bool:
     return cur.rowcount > 0
 
 
+# Domains where the local-part identifies a person, not a company — a reply from
+# john@gmail.com tells us nothing about our lead info@gmail.com, so never match by domain.
+_FREE_MAIL = {
+    "gmail.com", "googlemail.com", "outlook.com", "hotmail.com", "live.com", "msn.com",
+    "yahoo.com", "yahoo.co.uk", "yahoo.com.br", "ymail.com", "icloud.com", "me.com",
+    "aol.com", "protonmail.com", "proton.me", "gmx.com", "zoho.com", "mail.com",
+    "qq.com", "163.com", "126.com", "sina.com", "foxmail.com", "naver.com", "hanmail.net",
+}
+
+
+def _domain(addr: str) -> str:
+    return addr.split("@", 1)[1] if "@" in addr else ""
+
+
 def _lead_emails(conn) -> dict[str, int]:
     rows = conn.execute(
         "SELECT no, email FROM leads WHERE email IS NOT NULL AND email != ''").fetchall()
     return {_norm(r["email"]): r["no"] for r in rows}
 
 
+def _by_domain(by_email: dict[str, int]) -> dict[str, list[int]]:
+    """Company domain -> its lead numbers (free-mail domains excluded)."""
+    out: dict[str, list[int]] = {}
+    for addr, no in by_email.items():
+        dom = _domain(addr)
+        if dom and dom not in _FREE_MAIL:
+            out.setdefault(dom, []).append(no)
+    return out
+
+
+def _resolve_sender(sender: str, by_email: dict[str, int], by_domain: dict[str, list[int]]) -> list[int]:
+    """Lead numbers a reply belongs to: exact email first, then same company domain.
+    Domain fallback catches the very common case of a person replying from their own
+    address to mail we sent to info@/sales@ at the same company."""
+    if sender in by_email:
+        return [by_email[sender]]
+    return by_domain.get(_domain(sender), [])
+
+
 def process_messages(conn, messages: list[dict]) -> dict:
     """Classify and store fetched messages against the lead base."""
     by_email = _lead_emails(conn)
+    by_domain = _by_domain(by_email)
     replies_n = bounces = unsubs = stored = 0
     lead_nos: list[int] = []
     for m in messages:
@@ -129,19 +163,23 @@ def process_messages(conn, messages: list[dict]) -> dict:
                 bounces += 1
                 lead_nos.append(no)
             continue
-        no = by_email.get(sender)
-        if no is None:
+        matched = _resolve_sender(sender, by_email, by_domain)
+        if not matched:
             continue
         kind = "unsubscribe" if _UNSUB_RE.search(subject) or _UNSUB_RE.search(body) else "reply"
-        if _store(conn, no, kind, m):
+        # A reply/unsub from someone at the company applies to every lead we hold there:
+        # store the message once (on the first), stop chasing all of them.
+        if _store(conn, matched[0], kind, m):
             stored += 1
+        for no in matched:
+            if kind == "unsubscribe":
+                conn.execute("UPDATE leads SET do_not_contact=1 WHERE no=?", (no,))
+            repository.mark_replied(conn, no, "email")
+            lead_nos.append(no)
         if kind == "unsubscribe":
-            conn.execute("UPDATE leads SET do_not_contact=1 WHERE no=?", (no,))
             unsubs += 1
         else:
             replies_n += 1
-        repository.mark_replied(conn, no, "email")
-        lead_nos.append(no)
     conn.commit()
     return {"replies": replies_n, "bounces": bounces, "unsubscribes": unsubs,
             "stored": stored, "lead_nos": lead_nos}
