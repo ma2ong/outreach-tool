@@ -268,7 +268,7 @@ export function App() {
         <div className="content">
           {err && <div className="error-text" style={{ marginBottom: 12 }}>加载失败：{err}</div>}
           {page === "dashboard" && stats && (
-            <Dashboard stats={stats} onGotoFollowUp={() => {
+            <Dashboard stats={stats} unread={unread} onGoto={(p) => setPage(p as Page)} onGotoFollowUp={() => {
               setCountry(""); setChannel(""); setStatus(""); setHas(""); setSearch("");
               setFollowUp("due"); setLeadPage(0); setPage("leads");
             }} />

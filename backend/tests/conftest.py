@@ -8,6 +8,8 @@ def _auth_disabled(tmp_path, monkeypatch):
     from app import auth
     monkeypatch.setattr(auth, "PASSWORD_FILE", str(tmp_path / "no_pw.txt"))
     monkeypatch.setattr(auth, "SESSION_KEY_FILE", str(tmp_path / ".session_key"))
+    # never let a test reach the real Gmail IMAP via the startup auto-poll
+    monkeypatch.setenv("OUTREACH_AUTO_POLL", "0")
 
 
 @pytest.fixture

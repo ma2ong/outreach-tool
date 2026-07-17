@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
-import { fetchQuota, fetchCampaignStats, type CampaignStat, type CountryStat } from "../api";
-import type { Stats, ChannelReach } from "../types";
+import { fetchQuota, fetchCampaignStats, fetchDue, type CampaignStat, type CountryStat } from "../api";
+import type { Stats, ChannelReach, DueItem } from "../types";
 import { StatCards } from "./StatCards";
 
-const CH_LABEL: Record<string, string> = { email: "Email", whatsapp: "WhatsApp", instagram: "Instagram" };
+const CH_LABEL: Record<string, string> = { email: "Email", whatsapp: "WhatsApp", instagram: "Instagram", facebook: "Facebook" };
 
 function ReachRow({ channel, r }: { channel: string; r: ChannelReach }) {
   const base = Math.max(r.have, 1);
@@ -22,15 +22,28 @@ function ReachRow({ channel, r }: { channel: string; r: ChannelReach }) {
   );
 }
 
-export function Dashboard({ stats, onGotoFollowUp }: { stats: Stats; onGotoFollowUp: () => void }) {
+export function Dashboard({ stats, unread, onGotoFollowUp, onGoto }: {
+  stats: Stats; unread: number; onGotoFollowUp: () => void; onGoto: (page: string) => void;
+}) {
   const [quota, setQuota] = useState<Record<string, { sent_today: number; cap: number }>>({});
   const [camps, setCamps] = useState<CampaignStat[]>([]);
   const [countryStats, setCountryStats] = useState<CountryStat[]>([]);
+  const [dueSeq, setDueSeq] = useState<DueItem[]>([]);
   useEffect(() => {
     fetchQuota().then(setQuota).catch(() => {});
     fetchCampaignStats().then((r) => { setCamps(r.campaigns); setCountryStats(r.countries); }).catch(() => {});
+    fetchDue().then(setDueSeq).catch(() => {});
   }, []);
   const due = stats.funnel?.follow_up_due ?? 0;
+
+  // 今日能发出去的量（各渠道剩余额度封顶），让"待发"数字如实
+  const sendableToday = (() => {
+    const left: Record<string, number> = {};
+    for (const [ch, q] of Object.entries(quota)) left[ch] = Math.max(0, q.cap - q.sent_today);
+    let n = 0;
+    for (const d of dueSeq) { if ((left[d.channel] ?? 0) > 0) { left[d.channel]--; n++; } }
+    return n;
+  })();
 
   const f = stats.funnel;
   const funnelBase = Math.max(f?.total ?? stats.total, 1);
@@ -45,6 +58,33 @@ export function Dashboard({ stats, onGotoFollowUp }: { stats: Stats; onGotoFollo
   const maxC = countries[0]?.[1] ?? 1;
   return (
     <>
+      {(dueSeq.length > 0 || unread > 0) && (
+        <div className="card" style={{ marginBottom: 16 }}>
+          <h3 style={{ marginTop: 0 }}>☀️ 今日工作台</h3>
+          <div style={{ display: "flex", gap: 24, flexWrap: "wrap", alignItems: "center" }}>
+            {dueSeq.length > 0 && (
+              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                <div>
+                  <div className="stat-label">待发跟进</div>
+                  <div className="stat-value">{sendableToday}<span className="muted" style={{ fontSize: 14 }}> / {dueSeq.length} 条</span></div>
+                  <div className="muted" style={{ fontSize: 12 }}>今天额度内能发 {sendableToday} 条，其余明天继续</div>
+                </div>
+                <button className="btn btn-primary btn-sm" onClick={() => onGoto("sequences")}>去发送 →</button>
+              </div>
+            )}
+            {unread > 0 && (
+              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                <div>
+                  <div className="stat-label">未读回复</div>
+                  <div className="stat-value" style={{ color: "var(--green)" }}>{unread} 封</div>
+                  <div className="muted" style={{ fontSize: 12 }}>客户回的话在等你看 —— 回复越快成单率越高</div>
+                </div>
+                <button className="btn btn-green btn-sm" onClick={() => onGoto("inbox")}>去查看 →</button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
       {due > 0 && (
         <div className="card" style={{ marginBottom: 16, borderColor: "var(--warn)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "space-between" }}
           onClick={onGotoFollowUp} title="查看待跟进客户">
@@ -58,11 +98,11 @@ export function Dashboard({ stats, onGotoFollowUp }: { stats: Stats; onGotoFollo
       )}
       <StatCards stats={stats} />
       <div className="cards-row">
-        {Object.entries(quota).map(([ch, q]) => (
+        {["email", "whatsapp", "instagram", "facebook"].map((ch) => quota[ch] && (
           <div key={ch} className="card stat-card">
-            <div className="stat-label">今日 {ch === "whatsapp" ? "WhatsApp" : "Instagram"} 额度</div>
-            <div className="stat-value">{q.sent_today}<span className="muted" style={{ fontSize: 15 }}> / {q.cap}</span></div>
-            {q.sent_today >= q.cap && <div className="warn-text">已到日上限，明天再发</div>}
+            <div className="stat-label">今日 {CH_LABEL[ch]} 额度</div>
+            <div className="stat-value">{quota[ch].sent_today}<span className="muted" style={{ fontSize: 15 }}> / {quota[ch].cap}</span></div>
+            {quota[ch].sent_today >= quota[ch].cap && <div className="warn-text">已到日上限，明天再发</div>}
           </div>
         ))}
       </div>

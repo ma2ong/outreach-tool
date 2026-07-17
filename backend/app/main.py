@@ -2,6 +2,7 @@ import datetime
 import glob
 import os
 import shutil
+import threading
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -43,6 +44,26 @@ def backup_db(db_path: str = DB_PATH) -> str | None:
     return dest
 
 
+def auto_poll_replies() -> None:
+    """Pull replies once at startup so the inbox is current without Allen remembering
+    to click 拉取邮件 — a missed click means the sequences keep chasing people who
+    already answered. Fully fault-tolerant: no Gmail password or a network hiccup
+    just skips the poll; the manual button still exists."""
+    if os.environ.get("OUTREACH_AUTO_POLL", "1") == "0":
+        return
+    from app import replies
+    from app.channels.email_adapter import get_password
+    if not get_password():
+        return
+    conn = connect(DB_PATH)
+    try:
+        replies.poll_replies(conn)
+    except Exception:  # noqa: BLE001 — best-effort background refresh
+        pass
+    finally:
+        conn.close()
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Idempotent: CREATE TABLE IF NOT EXISTS + additive column migration, so an
@@ -55,6 +76,8 @@ async def lifespan(app: FastAPI):
         normalize_all_websites(conn)  # idempotent data fix: consistent website form
     finally:
         conn.close()
+    # background so a slow IMAP never delays the app coming up
+    threading.Thread(target=auto_poll_replies, daemon=True).start()
     yield
 
 

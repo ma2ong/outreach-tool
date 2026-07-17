@@ -85,9 +85,17 @@ export function InboxPanel({ onOpenLead, onUnreadChange }: {
                 <div style={{ marginTop: 8 }}>
                   <div className="muted" style={{ fontSize: 12 }}>发件人：{m.from_addr}</div>
                   <pre style={{ whiteSpace: "pre-wrap", fontFamily: "inherit", fontSize: 13, margin: "6px 0" }}>{m.body || "(无正文)"}</pre>
-                  <button className="btn btn-sm" onClick={(e) => { e.stopPropagation(); onOpenLead(m.lead_no); }}>
+                  <button className="btn btn-sm" style={{ marginRight: 8 }} onClick={(e) => { e.stopPropagation(); onOpenLead(m.lead_no); }}>
                     打开客户详情 →
                   </button>
+                  {m.kind === "reply" && m.from_addr && (
+                    <a className="btn btn-sm" target="_blank" rel="noreferrer"
+                      onClick={(e) => e.stopPropagation()}
+                      href={`https://mail.google.com/mail/u/0/#search/${encodeURIComponent("from:" + m.from_addr)}`}
+                      title="在 Gmail 里打开和这个客户的往来邮件，直接回复">
+                      ↩ 去 Gmail 回复
+                    </a>
+                  )}
                 </div>
               )}
             </div>
