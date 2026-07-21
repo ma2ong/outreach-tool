@@ -1,13 +1,13 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { startEmailSend, startChannelSend, fetchJob, fetchQuota, fetchTemplates, createTemplate, loadSeeds } from "../api";
 import type { SendJob, Template } from "../types";
 
-const DEFAULT_SUBJECT = "Recent LED Display Installations in Korea";
+const DEFAULT_SUBJECT = "Recent LED Display Project References";
 const DEFAULT_BODY = `Hi {name},
 
 I'm Allen, from an LED display manufacturing factory in Shenzhen, China.
 
-I came across your LED video wall and display work and wanted to share a recent project reference from Korea. The attached sheet includes indoor fine-pitch LED walls, outdoor LED screens, and commercial installations.
+I came across your LED video wall and display work and wanted to share some recent project references. The attached sheet includes indoor fine-pitch LED walls, outdoor LED screens, and commercial installations.
 
 If you ever need LED panels or full displays, I can recommend options based on size, viewing distance, pixel pitch, and indoor/outdoor use.
 
@@ -57,6 +57,8 @@ export function OutreachPanel({ selected, countries = [], firstCompany = "", onD
     Number((b.lang || "en") === wantLang) - Number((a.lang || "en") === wantLang));
 
   const isEmail = channel === "email";
+  const pollRef = useRef<number | null>(null);
+  useEffect(() => () => { if (pollRef.current) clearInterval(pollRef.current); }, []);
   useEffect(() => { fetchQuota().then(setQuota).catch(() => {}); }, [channel, sending]);
   useEffect(() => { fetchTemplates(channel).then(setTemplates).catch(() => {}); }, [channel]);
 
@@ -92,10 +94,14 @@ export function OutreachPanel({ selected, countries = [], firstCompany = "", onD
         ? `，本批只发前 ${willSend} 家（防封号上限），其余 ${start.eligible - willSend} 家下次再发`
         : "";
       setMsg(`已选 ${start.selected} 家，符合条件（${unit}且未发过）${start.eligible} 家${capNote}，开始发送…`);
-      const poll = setInterval(async () => {
+      if (pollRef.current) clearInterval(pollRef.current);
+      pollRef.current = window.setInterval(async () => {
         const j = await fetchJob(start.job_id);
         setJob(j);
-        if (j.status !== "running") { clearInterval(poll); setSending(false); onDone(); }
+        if (j.status !== "running") {
+          if (pollRef.current) clearInterval(pollRef.current);
+          pollRef.current = null; setSending(false); onDone();
+        }
       }, 1500);
     } catch (e) { setMsg("发送失败：" + String(e)); setSending(false); }
   }
@@ -122,7 +128,8 @@ export function OutreachPanel({ selected, countries = [], firstCompany = "", onD
       } catch (e) { started.push({ ch, job_id: "", note: "启动失败：" + String(e) }); }
     }
     setAllJobs(started.map((s) => ({ ch: s.ch, job: null, note: s.note })));
-    const poll = setInterval(async () => {
+    if (pollRef.current) clearInterval(pollRef.current);
+    pollRef.current = window.setInterval(async () => {
       const rows = await Promise.all(started.map(async (s) => {
         if (!s.job_id) return { ch: s.ch, job: null, note: s.note };
         try { return { ch: s.ch, job: await fetchJob(s.job_id), note: s.note }; }
@@ -130,7 +137,8 @@ export function OutreachPanel({ selected, countries = [], firstCompany = "", onD
       }));
       setAllJobs(rows);
       if (rows.every((r) => !r.job || r.job.status !== "running")) {
-        clearInterval(poll); setSending(false); onDone();
+        if (pollRef.current) clearInterval(pollRef.current);
+        pollRef.current = null; setSending(false); onDone();
       }
     }, 2000);
   }

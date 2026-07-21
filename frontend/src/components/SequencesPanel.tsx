@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { fetchSequences, createSequence, fetchDue, sendDue, pollReplies, fetchJob, loadSeeds, fetchQuota } from "../api";
 import type { Sequence, DueItem, SendJob } from "../types";
 
@@ -40,6 +40,9 @@ export function SequencesPanel({ onChanged }: { onChanged?: () => void }) {
     return picked;
   }
 
+  const pollRef = useRef<number | null>(null);
+  useEffect(() => () => { if (pollRef.current) clearInterval(pollRef.current); }, []);
+
   function reload() {
     fetchSequences().then(setSeqs).catch((e) => setMsg(String(e)));
     Promise.all([fetchDue(), fetchQuota()])
@@ -71,10 +74,14 @@ export function SequencesPanel({ onChanged }: { onChanged?: () => void }) {
     try {
       const start = await sendDue([...picked]);
       setMsg(`本批将发送 ${start.will_send} 条跟进…`);
-      const poll = setInterval(async () => {
+      if (pollRef.current) clearInterval(pollRef.current);
+      pollRef.current = window.setInterval(async () => {
         const j = await fetchJob(start.job_id);
         setJob(j);
-        if (j.status !== "running") { clearInterval(poll); setSending(false); reload(); onChanged?.(); }
+        if (j.status !== "running") {
+          if (pollRef.current) clearInterval(pollRef.current);
+          pollRef.current = null; setSending(false); reload(); onChanged?.();
+        }
       }, 1500);
     } catch (e) { setMsg("发送失败：" + String(e)); setSending(false); }
   }

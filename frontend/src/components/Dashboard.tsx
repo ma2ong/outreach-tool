@@ -1,6 +1,6 @@
-import { useEffect, useState } from "react";
-import { fetchQuota, fetchCampaignStats, fetchDue, type CampaignStat, type CountryStat } from "../api";
-import type { Stats, ChannelReach, DueItem } from "../types";
+import { useEffect, useRef, useState } from "react";
+import { fetchQuota, fetchCampaignStats, fetchDue, sendDue, fetchJob, type CampaignStat, type CountryStat } from "../api";
+import type { Stats, ChannelReach, DueItem, SendJob } from "../types";
 import { StatCards } from "./StatCards";
 
 const CH_LABEL: Record<string, string> = { email: "Email", whatsapp: "WhatsApp", instagram: "Instagram", facebook: "Facebook" };
@@ -29,21 +29,50 @@ export function Dashboard({ stats, unread, onGotoFollowUp, onGoto }: {
   const [camps, setCamps] = useState<CampaignStat[]>([]);
   const [countryStats, setCountryStats] = useState<CountryStat[]>([]);
   const [dueSeq, setDueSeq] = useState<DueItem[]>([]);
-  useEffect(() => {
+  const [sending, setSending] = useState(false);
+  const [sendJob, setSendJob] = useState<SendJob | null>(null);
+  const [sendMsg, setSendMsg] = useState("");
+  const pollRef = useRef<number | null>(null);
+  function refreshDue() {
     fetchQuota().then(setQuota).catch(() => {});
-    fetchCampaignStats().then((r) => { setCamps(r.campaigns); setCountryStats(r.countries); }).catch(() => {});
     fetchDue().then(setDueSeq).catch(() => {});
+  }
+  useEffect(() => {
+    refreshDue();
+    fetchCampaignStats().then((r) => { setCamps(r.campaigns); setCountryStats(r.countries); }).catch(() => {});
   }, []);
+  // 组件卸载时清掉发送轮询，避免泄漏 + 对已卸载组件 setState
+  useEffect(() => () => { if (pollRef.current) clearInterval(pollRef.current); }, []);
   const due = stats.funnel?.follow_up_due ?? 0;
 
-  // 今日能发出去的量（各渠道剩余额度封顶），让"待发"数字如实
-  const sendableToday = (() => {
+  // 今日能发出去的跟进（各渠道剩余额度封顶），既给"待发"数字也给一键发送用的 enrollment_id
+  const todayPicks = (() => {
     const left: Record<string, number> = {};
     for (const [ch, q] of Object.entries(quota)) left[ch] = Math.max(0, q.cap - q.sent_today);
-    let n = 0;
-    for (const d of dueSeq) { if ((left[d.channel] ?? 0) > 0) { left[d.channel]--; n++; } }
-    return n;
+    const ids: number[] = [];
+    for (const d of dueSeq) { if ((left[d.channel] ?? 0) > 0) { left[d.channel]--; ids.push(d.enrollment_id); } }
+    return ids;
   })();
+  const sendableToday = todayPicks.length;
+
+  async function sendToday() {
+    if (todayPicks.length === 0) return;
+    setSending(true); setSendMsg(""); setSendJob(null);
+    if (pollRef.current) clearInterval(pollRef.current);
+    try {
+      const start = await sendDue(todayPicks);
+      setSendMsg(`本批发送 ${start.will_send} 条跟进…`);
+      pollRef.current = window.setInterval(async () => {
+        const j = await fetchJob(start.job_id);
+        setSendJob(j);
+        if (j.status !== "running") {
+          if (pollRef.current) clearInterval(pollRef.current);
+          pollRef.current = null;
+          setSending(false); refreshDue();
+        }
+      }, 1500);
+    } catch (e) { setSendMsg("发送失败：" + String(e)); setSending(false); }
+  }
 
   const f = stats.funnel;
   const funnelBase = Math.max(f?.total ?? stats.total, 1);
@@ -68,8 +97,21 @@ export function Dashboard({ stats, unread, onGotoFollowUp, onGoto }: {
                   <div className="stat-label">待发跟进</div>
                   <div className="stat-value">{sendableToday}<span className="muted" style={{ fontSize: 14 }}> / {dueSeq.length} 条</span></div>
                   <div className="muted" style={{ fontSize: 12 }}>今天额度内能发 {sendableToday} 条，其余明天继续</div>
+                  {(sendMsg || sendJob) && (
+                    <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>
+                      {sendMsg}
+                      {sendJob && ` 进度 ${sendJob.done}/${sendJob.total}`}
+                      {sendJob?.status === "done" && sendJob.result && "sent" in sendJob.result &&
+                        ` — 成功 ${sendJob.result.sent}，失败 ${sendJob.result.failed}${sendJob.result.deferred ? `，延后 ${sendJob.result.deferred}` : ""}`}
+                    </div>
+                  )}
                 </div>
-                <button className="btn btn-primary btn-sm" onClick={() => onGoto("sequences")}>去发送 →</button>
+                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                  <button className="btn btn-green btn-sm" onClick={sendToday} disabled={sending || sendableToday === 0}>
+                    {sending ? "发送中…" : `🚀 发送今日 ${sendableToday} 条`}
+                  </button>
+                  <button className="btn btn-sm" onClick={() => onGoto("sequences")}>查看/编辑 →</button>
+                </div>
               </div>
             )}
             {unread > 0 && (

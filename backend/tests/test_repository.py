@@ -31,6 +31,16 @@ def test_list_leads_sort_and_paginate(conn):
     assert [l.no for l in page] == [2]
 
 
+def test_list_leads_sort_by_fit(conn):
+    # target_fit stores "label (score)"; "fit" sorts by that score, unscored sinks.
+    conn.execute("UPDATE leads SET target_fit = ? WHERE no = 1", ("AV集成商 (85)",))
+    conn.execute("UPDATE leads SET target_fit = ? WHERE no = 2", ("租赁公司 (90)",))
+    conn.execute("UPDATE leads SET target_fit = ? WHERE no = 3", ("quick-add",))  # no score -> 0
+    conn.commit()
+    desc = repo.list_leads(conn, sort="fit", order="desc")
+    assert [l.no for l in desc] == [2, 1, 3]  # 90, 85, then unscored
+
+
 def test_list_leads_sort_rejects_bad_column(conn):
     # unknown sort column falls back to 'no' (no SQL injection / error)
     got = repo.list_leads(conn, sort="company_en; DROP TABLE leads")

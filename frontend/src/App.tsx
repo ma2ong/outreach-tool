@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { fetchLead, fetchLeads, fetchLeadsPage, fetchStats, markReplied, fetchSequences, enrollLeads, startVerify, fetchVerifyJob, startClassify, fetchClassifyJob, fetchDuplicates, mergeDuplicates, fetchInboxUnread, quickAddLead, fetchAuthStatus, login } from "./api";
 import type { Lead, Stats, Sequence } from "./types";
 import { Dashboard } from "./components/Dashboard";
@@ -74,7 +74,7 @@ function LoginGate({ onSuccess }: { onSuccess: () => void }) {
 }
 
 export function App() {
-  const [page, setPage] = useState<Page>("leads");
+  const [page, setPage] = useState<Page>("dashboard");
   const [theme, toggleTheme] = useTheme();
   const [stats, setStats] = useState<Stats | null>(null);
   const [leads, setLeads] = useState<Lead[]>([]);
@@ -101,6 +101,10 @@ export function App() {
 
   const refreshUnread = () => fetchInboxUnread().then(setUnread).catch(() => {});
   useEffect(() => { refreshUnread(); }, []);
+
+  // 追踪所有轮询定时器，组件卸载时统一清掉（防泄漏 + 对已卸载组件 setState）
+  const timers = useRef<Set<number>>(new Set());
+  useEffect(() => () => { timers.current.forEach((id) => clearInterval(id)); }, []);
 
   async function openLead(no: number) {
     try { setDetail(await fetchLead(no)); } catch (e) { setErr(String(e)); }
@@ -160,7 +164,8 @@ export function App() {
   const filterReset = () => setLeadPage(0);
   function sortBy(col: string) {
     if (sort === col) { setOrder(order === "asc" ? "desc" : "asc"); }
-    else { setSort(col); setOrder("asc"); }
+    // 契合分默认高分在前（最优买家类型 rental/integrator 浮顶），其余列默认升序
+    else { setSort(col); setOrder(col === "fit" ? "desc" : "asc"); }
     filterReset();
   }
 
@@ -175,10 +180,10 @@ export function App() {
     try {
       const scope = selected.size > 0 ? [...selected] : undefined;
       const { job_id } = await startVerify(scope);
-      const poll = setInterval(async () => {
+      const poll = window.setInterval(async () => {
         const j = await fetchVerifyJob(job_id);
         if (j.status !== "running") {
-          clearInterval(poll); setVerifying(false);
+          clearInterval(poll); timers.current.delete(poll); setVerifying(false);
           if (j.result && "checked" in j.result) {
             const r = j.result;
             setVerifyMsg(`已验证 ${r.checked} 个邮箱：有效 ${r.valid}，角色邮箱 ${r.role}，无效 ${r.invalid}（发送时自动跳过），无法判定 ${r.unknown}`);
@@ -186,6 +191,7 @@ export function App() {
           } else if (j.result && "error" in j.result) { setVerifyMsg("验证失败：" + j.result.error); }
         }
       }, 1500);
+      timers.current.add(poll);
     } catch (e) { setVerifying(false); setVerifyMsg("验证失败：" + String(e)); }
   }
 
@@ -211,16 +217,17 @@ export function App() {
     try {
       const scope = selected.size > 0 ? [...selected] : undefined;
       const { job_id } = await startClassify(scope);
-      const poll = setInterval(async () => {
+      const poll = window.setInterval(async () => {
         const j = await fetchClassifyJob(job_id);
         if (j.status === "running") { setVerifyMsg(`客户分级中 ${j.done}${j.total ? "/" + j.total : ""}…`); return; }
-        clearInterval(poll); setClassifying(false);
+        clearInterval(poll); timers.current.delete(poll); setClassifying(false);
         if (j.result && "checked" in j.result) {
           const types = Object.entries(j.result.by_type).map(([t, n]) => `${t} ${n}`).join("，");
           setVerifyMsg(`已分级 ${j.result.checked} 家：${types || "未识别出类型"}。按"客户类型"列排序可优先打高价值客户。`);
           reload();
         } else if (j.result && "error" in j.result) { setVerifyMsg("分级失败：" + j.result.error); }
       }, 2000);
+      timers.current.add(poll);
     } catch (e) { setClassifying(false); setVerifyMsg("分级失败：" + String(e)); }
   }
 

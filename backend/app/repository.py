@@ -49,6 +49,10 @@ def _due_clause(days: int) -> tuple[str, list]:
 
 
 _SORT_COLS = {"no", "company_en", "country", "city", "stage", "target_fit"}
+# target_fit is stored as "AV集成商 (85)"; "fit" sorts by that parenthesized score
+# so the best-fit buyer types (rental 90 > integrator 85 > reseller 80) float up.
+# Unscored leads (quick-add/discovered/NULL) parse to 0 and sink to the bottom.
+_FIT_SORT = "CAST(substr(l.target_fit, instr(l.target_fit, '(') + 1) AS INTEGER)"
 
 
 def _lead_filters(country, channel, status, search, has, follow_up, follow_up_days):
@@ -104,9 +108,12 @@ def list_leads(conn, country=None, channel=None, status=None, search=None, has=N
     sql = "SELECT l.* FROM leads l"
     if where:
         sql += " WHERE " + " AND ".join(where)
-    col = sort if sort in _SORT_COLS else "no"
     direction = "DESC" if str(order).lower() == "desc" else "ASC"
-    sql += f" ORDER BY l.{col} {direction}, l.no {direction}"
+    if sort == "fit":
+        sql += f" ORDER BY {_FIT_SORT} {direction}, l.no ASC"
+    else:
+        col = sort if sort in _SORT_COLS else "no"
+        sql += f" ORDER BY l.{col} {direction}, l.no {direction}"
     if limit is not None:
         sql += " LIMIT ? OFFSET ?"
         params += [limit, offset]

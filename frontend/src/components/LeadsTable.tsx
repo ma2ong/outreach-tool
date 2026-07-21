@@ -56,7 +56,7 @@ export function LeadsTable({ leads, selected, onToggle, onToggleAll, onReply, on
           <th><input type="checkbox" checked={allChecked} onChange={(e) => onToggleAll(e.target.checked)} /></th>
           <Sortable col="no">#</Sortable><Sortable col="company_en">公司</Sortable>
           <Sortable col="stage">阶段</Sortable>
-          <Sortable col="target_fit">客户类型</Sortable>
+          <Sortable col="fit">客户类型</Sortable>
           <Sortable col="country">国家</Sortable>
           <Sortable col="city">城市</Sortable>
           <th>邮箱</th><th>电话 / WhatsApp</th><th>IG</th><th>FB</th><th>渠道状态</th>
