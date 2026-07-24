@@ -15,7 +15,8 @@ test("shell loads with sidebar and leads table", async ({ page }) => {
   await page.goto("/");
   await expect(page.getByText("Maxcolor")).toBeVisible();
   await expect(page.locator(".nav-item", { hasText: "客户库" })).toBeVisible();
-  // leads page is default; table has at least one data row
+  // Dashboard is the daily-workbench default; open the customer library explicitly.
+  await page.getByRole("button", { name: /客户库/ }).click();
   await expect(page.locator("table tbody tr").first()).toBeVisible();
   // full columns present
   await expect(page.getByRole("columnheader", { name: "电话 / WhatsApp" })).toBeVisible();
@@ -25,6 +26,7 @@ test("shell loads with sidebar and leads table", async ({ page }) => {
 
 test("untouched filter option exists", async ({ page }) => {
   await page.goto("/");
+  await page.getByRole("button", { name: /客户库/ }).click();
   await expect(page.locator("select option[value='untouched']")).toHaveCount(1);
   await expect(page.locator("select option[value='phone']")).toHaveCount(1);
 });
@@ -32,6 +34,7 @@ test("untouched filter option exists", async ({ page }) => {
 // SAFETY: only selects a row to reveal the action bar — never clicks 发送 (that would send real messages).
 test("selecting a lead reveals outreach action bar", async ({ page }) => {
   await page.goto("/");
+  await page.getByRole("button", { name: /客户库/ }).click();
   await page.locator("table tbody tr").first().locator("input[type=checkbox]").check();
   await expect(page.getByText(/触达（已选/)).toBeVisible();
   await expect(page.getByRole("button", { name: "发送邮件" })).toBeVisible();
@@ -40,9 +43,11 @@ test("selecting a lead reveals outreach action bar", async ({ page }) => {
 // SAFETY: opens the detail drawer and reads it — does not save edits or send anything.
 test("clicking a lead row opens detail drawer with stage and notes", async ({ page }) => {
   await page.goto("/");
+  await page.getByRole("button", { name: /客户库/ }).click();
   await page.locator("table tbody tr").first().locator("td").nth(2).click();
   await expect(page.locator(".drawer")).toBeVisible();
   await expect(page.getByText("销售阶段")).toBeVisible();
+  await expect(page.getByText("LED 项目 / 商机")).toBeVisible();
   await expect(page.getByText("跟进记录", { exact: true })).toBeVisible();
   await page.locator(".drawer-close").click();
   await expect(page.locator(".drawer")).toHaveCount(0);
@@ -80,6 +85,7 @@ test("discovery has peer/country screening on by default", async ({ page }) => {
 // SAFETY: opens the health panel and reads it — never clicks 体检/一键处理 (would write DB).
 test("leads page has health check panel", async ({ page }) => {
   await page.goto("/");
+  await page.getByRole("button", { name: /客户库/ }).click();
   await page.getByRole("button", { name: /客户库体检/ }).click();
   await expect(page.getByRole("button", { name: /开始体检/ })).toBeVisible();
 });
@@ -87,6 +93,7 @@ test("leads page has health check panel", async ({ page }) => {
 // SAFETY: opens the quick-add panel and reads it — never clicks 添加入库.
 test("leads page has quick-add panel", async ({ page }) => {
   await page.goto("/");
+  await page.getByRole("button", { name: /客户库/ }).click();
   await page.getByRole("button", { name: /快速添加/ }).click();
   await expect(page.getByPlaceholder(/粘贴链接/)).toBeVisible();
   await expect(page.getByRole("button", { name: "添加入库" })).toBeVisible();
@@ -95,6 +102,7 @@ test("leads page has quick-add panel", async ({ page }) => {
 // SAFETY: only reveals the action bar and reads the button — never clicks it.
 test("action bar has one-click all-channel send button", async ({ page }) => {
   await page.goto("/");
+  await page.getByRole("button", { name: /客户库/ }).click();
   await page.locator("table tbody tr").first().locator("input[type=checkbox]").check();
   await expect(page.getByRole("button", { name: /一键全渠道/ })).toBeVisible();
 });
@@ -118,9 +126,22 @@ test("inbox page is present", async ({ page }) => {
 // SAFETY: opens the drawer and reads the do-not-contact toggle — never checks it.
 test("lead drawer shows do-not-contact toggle", async ({ page }) => {
   await page.goto("/");
+  await page.getByRole("button", { name: /客户库/ }).click();
   await page.locator("table tbody tr").first().locator("td").nth(2).click();
   await expect(page.getByText(/不再联系/)).toBeVisible();
   await page.locator(".drawer-close").click();
+});
+
+// SAFETY: reads pipeline totals and opens the editor, but never saves changes.
+test("opportunity pipeline shows forecast and project context", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: /商机管道/ }).click();
+  await expect(page.getByText("加权预测", { exact: true })).toBeVisible();
+  await expect(page.getByText("Church P2.5 LED wall")).toBeVisible();
+  await expect(page.getByText("逾期", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "编辑" }).first().click();
+  await expect(page.getByText(/编辑商机/)).toBeVisible();
+  await expect(page.locator('input[value="P2.5"]')).toBeVisible();
 });
 
 test("theme toggle switches to light and persists attribute", async ({ page }) => {

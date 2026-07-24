@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { fetchQuota, fetchCampaignStats, fetchDue, sendDue, fetchJob, type CampaignStat, type CountryStat } from "../api";
-import type { Stats, ChannelReach, DueItem, SendJob } from "../types";
+import { fetchQuota, fetchCampaignStats, fetchDue, sendDue, fetchJob, fetchOpportunityStats, type CampaignStat, type CountryStat } from "../api";
+import type { Stats, ChannelReach, DueItem, SendJob, OpportunityStats } from "../types";
 import { StatCards } from "./StatCards";
 
 const CH_LABEL: Record<string, string> = { email: "Email", whatsapp: "WhatsApp", instagram: "Instagram", facebook: "Facebook" };
@@ -32,6 +32,7 @@ export function Dashboard({ stats, unread, onGotoFollowUp, onGoto }: {
   const [sending, setSending] = useState(false);
   const [sendJob, setSendJob] = useState<SendJob | null>(null);
   const [sendMsg, setSendMsg] = useState("");
+  const [opportunityStats, setOpportunityStats] = useState<OpportunityStats | null>(null);
   const pollRef = useRef<number | null>(null);
   function refreshDue() {
     fetchQuota().then(setQuota).catch(() => {});
@@ -40,6 +41,7 @@ export function Dashboard({ stats, unread, onGotoFollowUp, onGoto }: {
   useEffect(() => {
     refreshDue();
     fetchCampaignStats().then((r) => { setCamps(r.campaigns); setCountryStats(r.countries); }).catch(() => {});
+    fetchOpportunityStats().then(setOpportunityStats).catch(() => {});
   }, []);
   // 组件卸载时清掉发送轮询，避免泄漏 + 对已卸载组件 setState
   useEffect(() => () => { if (pollRef.current) clearInterval(pollRef.current); }, []);
@@ -138,6 +140,25 @@ export function Dashboard({ stats, unread, onGotoFollowUp, onGoto }: {
           <span className="btn btn-primary btn-sm">去跟进 →</span>
         </div>
       )}
+      <div className="card" style={{ marginBottom: 16, cursor: "pointer" }}
+        onClick={() => onGoto("opportunities")} title="打开商机管道">
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
+          <div>
+            <div className="stat-label">💰 商机管道</div>
+            <div className="stat-value">
+              {opportunityStats?.open_count ?? 0} 个开放项目
+              <span className="muted" style={{ fontSize: 14, marginLeft: 10 }}>
+                加权预测 USD {(opportunityStats?.weighted_amount ?? 0).toLocaleString()}
+              </span>
+            </div>
+            <div className="muted" style={{ fontSize: 12 }}>
+              开放金额 USD {(opportunityStats?.open_amount ?? 0).toLocaleString()} ·
+              逾期 {opportunityStats?.overdue_count ?? 0} · 停滞 {opportunityStats?.stale_count ?? 0}
+            </div>
+          </div>
+          <span className="btn btn-primary btn-sm">管理商机 →</span>
+        </div>
+      </div>
       <StatCards stats={stats} />
       <div className="cards-row">
         {["email", "whatsapp", "instagram", "facebook"].map((ch) => quota[ch] && (

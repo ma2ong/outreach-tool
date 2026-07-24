@@ -26,6 +26,7 @@ from app.api import mailboxes as mailboxes_api
 from app.api import classify as classify_api
 from app.api import products as products_api
 from app.api import inbox as inbox_api
+from app.api import opportunities as opportunities_api
 
 BACKUP_KEEP = 14
 
@@ -69,10 +70,12 @@ async def lifespan(app: FastAPI):
     # Idempotent: CREATE TABLE IF NOT EXISTS + additive column migration, so an
     # existing outreach.db picks up new tables/columns on upgrade without re-running migrate.
     from app.dedupe import normalize_all_websites
+    from app.opportunities import ensure_schema as ensure_opportunity_schema
     backup_db()  # the lead base is the business asset — snapshot before touching it
     conn = connect(DB_PATH)
     try:
         init_schema(conn)
+        ensure_opportunity_schema(conn)
         normalize_all_websites(conn)  # idempotent data fix: consistent website form
     finally:
         conn.close()
@@ -109,6 +112,7 @@ app.include_router(mailboxes_api.router)
 app.include_router(classify_api.router)
 app.include_router(products_api.router)
 app.include_router(inbox_api.router)
+app.include_router(opportunities_api.router)
 from app.api import auth as auth_api  # noqa: E402
 from app.api import health as health_api  # noqa: E402
 app.include_router(auth_api.router)

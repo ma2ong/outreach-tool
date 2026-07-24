@@ -69,6 +69,8 @@ _STATUS_RANK = {"replied": 3, "messaged": 2}
 
 
 def merge_leads(conn, keep: int, dups: list[int]) -> None:
+    from app.opportunities import ensure_schema as ensure_opportunity_schema
+    ensure_opportunity_schema(conn)
     keeper = conn.execute("SELECT * FROM leads WHERE no=?", (keep,)).fetchone()
     if keeper is None:
         return
@@ -101,6 +103,9 @@ def merge_leads(conn, keep: int, dups: list[int]) -> None:
                 conn.execute("DELETE FROM outreach WHERE id=?", (o["id"],))
         conn.execute("UPDATE notes SET lead_no=? WHERE lead_no=?", (keep, d))
         conn.execute("UPDATE send_log SET lead_no=? WHERE lead_no=?", (keep, d))
+        # A duplicate company may already have real projects. Repoint them before
+        # deleting the duplicate lead so ON DELETE CASCADE never loses pipeline value.
+        conn.execute("UPDATE opportunities SET lead_no=? WHERE lead_no=?", (keep, d))
         for e in conn.execute("SELECT id, sequence_id FROM sequence_enrollments WHERE lead_no=?", (d,)):
             dup_of_keep = conn.execute(
                 "SELECT 1 FROM sequence_enrollments WHERE lead_no=? AND sequence_id=?",

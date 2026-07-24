@@ -330,6 +330,58 @@ export async function fetchLead(no: number): Promise<Lead> {
   return r.json();
 }
 
+export async function fetchOpportunities(params: {
+  stage?: string; lead_no?: number; attention?: boolean;
+} = {}): Promise<import("./types").Opportunity[]> {
+  const qs = new URLSearchParams();
+  if (params.stage) qs.set("stage", params.stage);
+  if (params.lead_no !== undefined) qs.set("lead_no", String(params.lead_no));
+  if (params.attention) qs.set("attention", "true");
+  const r = await fetch(`/api/opportunities${qs.size ? "?" + qs.toString() : ""}`);
+  if (!r.ok) throw new Error(`opportunities ${r.status}`);
+  return r.json();
+}
+
+export async function fetchOpportunityStats(): Promise<import("./types").OpportunityStats> {
+  const r = await fetch("/api/opportunities/stats");
+  if (!r.ok) throw new Error(`opportunity stats ${r.status}`);
+  return r.json();
+}
+
+export async function createOpportunity(data: {
+  lead_no: number; title: string; stage?: string; amount?: number | null;
+  currency?: string; probability?: number; expected_close_date?: string | null;
+  next_action?: string | null; next_action_date?: string | null;
+  use_case?: string | null; indoor_outdoor?: string | null;
+  width_m?: number | null; height_m?: number | null; quantity?: number;
+  pixel_pitch?: string | null; destination?: string | null; incoterm?: string | null;
+  competitor?: string | null; loss_reason?: string | null;
+}): Promise<import("./types").Opportunity> {
+  const r = await fetch("/api/opportunities", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  if (!r.ok) {
+    const detail = (await r.json().catch(() => null))?.detail;
+    throw new Error(detail || `opportunity ${r.status}`);
+  }
+  return r.json();
+}
+
+export async function updateOpportunity(
+  id: number, data: Partial<import("./types").Opportunity>,
+): Promise<import("./types").Opportunity> {
+  const r = await fetch(`/api/opportunities/${id}`, {
+    method: "PATCH", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  if (!r.ok) {
+    const detail = (await r.json().catch(() => null))?.detail;
+    throw new Error(detail || `opportunity ${r.status}`);
+  }
+  return r.json();
+}
+
 export interface HealthLead { no: number; company_en: string; website: string | null; country: string | null; reason?: string }
 
 export async function scanHealth(): Promise<{ issues: Record<string, HealthLead[]>; total: number }> {

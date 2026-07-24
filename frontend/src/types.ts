@@ -148,6 +148,58 @@ export interface InboxMessage {
   company_en: string;
   country: string | null;
 }
+export interface Opportunity {
+  id: number;
+  lead_no: number;
+  company_en: string;
+  country: string | null;
+  title: string;
+  stage: string;
+  amount: number | null;
+  currency: string;
+  probability: number;
+  weighted_amount: number;
+  expected_close_date: string | null;
+  next_action: string | null;
+  next_action_date: string | null;
+  use_case: string | null;
+  indoor_outdoor: string | null;
+  width_m: number | null;
+  height_m: number | null;
+  quantity: number;
+  pixel_pitch: string | null;
+  destination: string | null;
+  incoterm: string | null;
+  competitor: string | null;
+  loss_reason: string | null;
+  overdue: boolean;
+  stale: boolean;
+  created_at: string;
+  updated_at: string;
+  last_activity_at: string;
+}
+export interface OpportunityStats {
+  open_count: number;
+  open_amount: number;
+  weighted_amount: number;
+  closing_this_month: number;
+  won_this_month: number;
+  attention_count: number;
+  overdue_count: number;
+  stale_count: number;
+  by_stage: Record<string, number>;
+}
+export const OPPORTUNITY_STAGES = [
+  "qualified", "requirements", "quoted", "negotiation", "won", "lost",
+] as const;
+export const OPPORTUNITY_STAGE_LABEL: Record<string, string> = {
+  qualified: "确认项目",
+  requirements: "确认规格",
+  quoted: "已报价",
+  negotiation: "谈判中",
+  won: "已成交",
+  lost: "已丢单",
+};
 export interface DiscoverJob {
   id: string;
   status: string;

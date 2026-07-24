@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
-import { updateLead, addNote } from "../api";
-import type { Lead } from "../types";
-import { STAGES, STAGE_LABEL } from "../types";
+import { updateLead, addNote, createOpportunity, fetchOpportunities } from "../api";
+import type { Lead, Opportunity } from "../types";
+import { STAGES, STAGE_LABEL, OPPORTUNITY_STAGE_LABEL } from "../types";
 
 const CH_LABEL: Record<string, string> = { email: "Email", whatsapp: "WhatsApp", instagram: "Instagram" };
 const STATE_TEXT: Record<string, string> = { replied: "已回复", messaged: "已触达" };
@@ -20,8 +20,18 @@ export function LeadDrawer({ lead, onClose, onChange }: {
   const [dirty, setDirty] = useState(false);
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState("");
+  const [opportunities, setOpportunities] = useState<Opportunity[]>([]);
+  const [showNewOpportunity, setShowNewOpportunity] = useState(false);
+  const [projectTitle, setProjectTitle] = useState("");
+  const [projectAmount, setProjectAmount] = useState("");
+  const [projectClose, setProjectClose] = useState("");
+  const [projectBusy, setProjectBusy] = useState(false);
 
-  useEffect(() => { setDraft(lead); setDirty(false); }, [lead.no]);
+  useEffect(() => {
+    setDraft(lead); setDirty(false);
+    setProjectTitle(`${lead.company_en} LED 项目`);
+    fetchOpportunities({ lead_no: lead.no }).then(setOpportunities).catch(() => {});
+  }, [lead.no]);
 
   const set = (k: keyof Lead, v: string) => { setDraft((d) => ({ ...d, [k]: v })); setDirty(true); };
 
@@ -50,6 +60,23 @@ export function LeadDrawer({ lead, onClose, onChange }: {
     if (!t) return;
     try { const u = await addNote(lead.no, t); setDraft(u); setNote(""); onChange(u); }
     catch (e) { setErr(String(e)); }
+  }
+
+  async function addProject() {
+    if (!projectTitle.trim()) return;
+    setProjectBusy(true); setErr("");
+    try {
+      await createOpportunity({
+        lead_no: lead.no,
+        title: projectTitle.trim(),
+        ...(projectAmount ? { amount: Number(projectAmount) } : {}),
+        ...(projectClose ? { expected_close_date: projectClose } : {}),
+      });
+      setOpportunities(await fetchOpportunities({ lead_no: lead.no }));
+      setShowNewOpportunity(false); setProjectAmount(""); setProjectClose("");
+      setProjectTitle(`${lead.company_en} LED 项目`);
+    } catch (e) { setErr(String(e)); }
+    finally { setProjectBusy(false); }
   }
 
   const field = (k: keyof Lead, label: string, type = "text") => (
@@ -123,6 +150,46 @@ export function LeadDrawer({ lead, onClose, onChange }: {
           {saving ? "保存中…" : dirty ? "保存修改" : "已保存"}
         </button>
         {err && <span className="error-text" style={{ marginLeft: 10 }}>{err}</span>}
+
+        <div className="section-title" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <span>LED 项目 / 商机</span>
+          <button className="btn btn-sm" onClick={() => setShowNewOpportunity(!showNewOpportunity)}>
+            ＋ 新建商机
+          </button>
+        </div>
+        {showNewOpportunity && (
+          <div className="card" style={{ padding: 10, marginBottom: 10 }}>
+            <input className="input" style={{ width: "100%", marginBottom: 6 }}
+              value={projectTitle} onChange={(e) => setProjectTitle(e.target.value)}
+              placeholder="项目名称，如：教堂 P2.5 室内屏" />
+            <div className="field-grid">
+              <div className="field"><label>预估金额 USD（可选）</label>
+                <input className="input" type="number" min="0" value={projectAmount}
+                  onChange={(e) => setProjectAmount(e.target.value)} /></div>
+              <div className="field"><label>预计成交日（可选）</label>
+                <input className="input" type="date" value={projectClose}
+                  onChange={(e) => setProjectClose(e.target.value)} /></div>
+            </div>
+            <button className="btn btn-primary btn-sm" onClick={addProject} disabled={projectBusy}>
+              {projectBusy ? "创建中…" : "创建商机"}
+            </button>
+          </div>
+        )}
+        {opportunities.length === 0 ? <div className="muted">暂无明确项目；客户确认需求后在这里建商机。</div> :
+          opportunities.map((o) => (
+            <div key={o.id} className="note-item" style={{ marginBottom: 7 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
+                <b>{o.title}</b>
+                <span className={`stage-badge stage-${o.stage}`}>
+                  {OPPORTUNITY_STAGE_LABEL[o.stage]}</span>
+              </div>
+              <div className="muted" style={{ fontSize: 12, marginTop: 3 }}>
+                {o.amount ? `${o.currency} ${o.amount.toLocaleString()} · ` : ""}
+                概率 {o.probability}% · 下一步：{o.next_action || "未安排"}
+                {o.overdue ? " · ⚠ 已逾期" : o.stale ? " · ⚠ 已停滞" : ""}
+              </div>
+            </div>
+          ))}
 
         <div className="section-title">触达状态</div>
         {draft.outreach.length === 0 ? <div className="muted">尚未触达</div> :

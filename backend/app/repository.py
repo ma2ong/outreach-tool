@@ -151,6 +151,8 @@ def mark_replied(conn, no: int, channel: str) -> None:
     # so the due queue never chases someone who already answered.
     from app import sequences
     sequences.stop_for_lead(conn, no, channel)
+    from app import opportunities
+    opportunities.touch_for_lead(conn, no)
 
 
 def get_lead(conn, no: int) -> Lead | None:
@@ -183,6 +185,8 @@ def add_note(conn, no: int, text: str) -> int:
     cur = conn.execute("INSERT INTO notes(lead_no, created_at, text) VALUES (?, ?, ?)",
                        (no, now, text))
     conn.commit()
+    from app import opportunities
+    opportunities.touch_for_lead(conn, no)
     return cur.lastrowid
 
 
